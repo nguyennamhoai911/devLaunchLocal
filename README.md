@@ -1,5 +1,9 @@
 # DevLaunch
 
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg?style=flat-square)
+![Platform](https://img.shields.io/badge/platform-windows-lightgrey.svg?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-emerald.svg?style=flat-square)
+
 Quản lý localhost đơn giản và hiệu quả cho Windows.
 
 ## Tính năng chính
