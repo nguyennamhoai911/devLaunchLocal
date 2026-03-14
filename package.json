@@ -1,0 +1,32 @@
+{
+  "name": "devlaunch",
+  "version": "1.0.0",
+  "description": "Quản lý localhost dễ dàng",
+  "author": "Antigravity",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "build-portable": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.devlaunch.app",
+    "productName": "DevLaunch",
+    "directories": { "output": "dist" },
+    "win": {
+      "icon": "assets/icon.png",
+      "target": ["nsis", "portable"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "DevLaunch"
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}

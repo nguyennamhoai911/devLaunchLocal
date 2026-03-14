@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevLaunch</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+
+    /* ── Scrollbars ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
+    .dark-scroll::-webkit-scrollbar-thumb { background: #374151; }
+
+    /* ── Status indicator ── */
+    @keyframes pulse-dot { 0%,100%{box-shadow:0 0 0 0 currentColor;} 50%{box-shadow:0 0 0 5px transparent;} }
+    .dot-running { animation: pulse-dot 2s infinite; color: rgba(34,197,94,0.5); }
+
+    /* ── Slide-in animations ── */
+    @keyframes slideIn  { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+    @keyframes fadeIn   { from{opacity:0} to{opacity:1} }
+    @keyframes scaleIn  { from{opacity:0;transform:scale(.97)} to{opacity:1;transform:none} }
+    .anim-in    { animation: slideIn  .2s ease forwards; }
+    .anim-fade  { animation: fadeIn   .25s ease forwards; }
+    .anim-scale { animation: scaleIn  .18s ease forwards; }
+
+    /* ── Toast ── */
+    @keyframes toastIn  { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+    @keyframes toastOut { from{opacity:1} to{opacity:0;transform:translateY(8px)} }
+    .toast-show { animation: toastIn .2s ease forwards; }
+    .toast-hide { animation: toastOut .2s ease forwards; }
+
+    /* ── Nav active ── */
+    .nav-active { background: #1e293b; color: #fff; }
+    .nav-active svg { color: #818cf8 !important; }
+
+    /* ── Selection ── */
+    .selectable { user-select: text !important; -webkit-user-select: text !important; }
+    .dragging { opacity: 0.5; transform: scale(0.98); }
+    .drag-over { border-top: 2px solid transparent !important; position: relative; }
+    .drag-over::before {
+      content: '';
+      position: absolute;
+      top: -1.5px;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: #6366f1;
+      border-radius: 99px;
+      box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+      z-index: 10;
+    }
+    /* Indicator dot at the start of the line */
+    .drag-over::after {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: -2px;
+      width: 8px;
+      height: 8px;
+      background: #6366f1;
+      border-radius: 50%;
+      z-index: 11;
+      box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+    }
+    .no-anim .anim-in { animation: none !important; }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { mono: ['JetBrains Mono', 'monospace'] }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="h-screen flex overflow-hidden select-none bg-slate-50 text-slate-900">
+
+<!-- ══════════════════════════════════════════
+     SIDEBAR (DARK)
+══════════════════════════════════════════ -->
+<aside class="w-60 bg-[#0f172a] text-slate-300 flex flex-col shrink-0 border-r border-slate-800">
+
+  <!-- Logo -->
+  <div class="h-14 flex items-center gap-3 px-5 border-b border-slate-800">
+    <div class="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-md">
+      <i data-lucide="rocket" class="h-4 w-4 text-white"></i>
+    </div>
+    <div>
+      <div class="text-white font-bold text-sm leading-none">DevLaunch</div>
+      <div class="text-slate-500 text-[10px] mt-0.5 tracking-wider uppercase">Localhost Manager</div>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <nav class="flex-1 overflow-y-auto dark-scroll px-3 py-4 space-y-0.5">
+    <div class="text-[10px] uppercase tracking-widest font-semibold text-slate-600 px-2 pb-2">General</div>
+    <button id="navAll"     onclick="setView('all')"     class="nav-btn group flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-slate-800 hover:text-white">
+      <i data-lucide="layout-grid" class="h-4 w-4 text-slate-500 group-hover:text-indigo-400 transition-colors"></i> All Services
+      <span id="cntAll" class="ml-auto text-[11px] font-mono text-slate-500">0</span>
+    </button>
+    <button id="navRunning" onclick="setView('running')" class="nav-btn group flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-slate-800 hover:text-white">
+      <i data-lucide="play-circle" class="h-4 w-4 text-slate-500 group-hover:text-emerald-400 transition-colors"></i> Running
+      <span id="cntRunning" class="ml-auto text-[11px] font-mono text-emerald-500">0</span>
+    </button>
+    <button id="navStopped" onclick="setView('stopped')" class="nav-btn group flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-slate-800 hover:text-white">
+      <i data-lucide="stop-circle" class="h-4 w-4 text-slate-500 group-hover:text-rose-400 transition-colors"></i> Stopped
+      <span id="cntStopped" class="ml-auto text-[11px] font-mono text-slate-500">0</span>
+    </button>
+
+    <div class="text-[10px] uppercase tracking-widest font-semibold text-slate-600 px-2 pt-5 pb-2 flex items-center justify-between">
+      projects
+    </div>
+    <div id="projNav" class="space-y-0.5"></div>
+  </nav>
+
+  <!-- Sidebar Footer -->
+  <div class="border-t border-slate-800 p-3 flex gap-2">
+    <button onclick="doImport()" class="flex-1 py-1.5 text-xs rounded-md border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white transition-all flex items-center justify-center gap-1.5">
+      <i data-lucide="upload" class="h-3 w-3"></i> Import
+    </button>
+    <button onclick="doExport()" class="flex-1 py-1.5 text-xs rounded-md border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white transition-all flex items-center justify-center gap-1.5">
+      <i data-lucide="download" class="h-3 w-3"></i> Backup
+    </button>
+  </div>
+</aside>
+
+<!-- ══════════════════════════════════════════
+     MAIN (LIGHT)
+══════════════════════════════════════════ -->
+<div class="flex-1 flex flex-col overflow-hidden">
+
+  <!-- Topbar + Quick Add (DARK, combined) -->
+  <header class="bg-[#1e293b] text-white shrink-0 border-b border-slate-700/80 z-10" style="-webkit-app-region: drag;">
+
+    <!-- Row 1: Title + Stats (draggable, items are pointer-events-none) -->
+    <div class="h-11 flex items-center gap-3 px-5 pr-40">
+      <span id="viewTitle" class="font-semibold text-sm text-white pointer-events-none">All Services</span>
+      <div class="h-3.5 w-px bg-slate-600 pointer-events-none"></div>
+      <span id="statRun"  class="text-[11px] font-medium text-emerald-400 bg-emerald-400/10 rounded-full px-2 py-0.5 leading-none pointer-events-none">0 running</span>
+      <span id="statStop" class="text-[11px] font-medium text-slate-400 bg-slate-700/60 rounded-full px-2 py-0.5 leading-none pointer-events-none">0 idle</span>
+    </div>
+
+    <!-- Row 2: Quick Add inputs (all no-drag since they need interaction) -->
+    <div class="h-10 flex items-center gap-2 px-5 border-t border-slate-700/50" style="-webkit-app-region: no-drag;">
+      <i data-lucide="zap" class="h-3.5 w-3.5 text-indigo-400 shrink-0"></i>
+      <input id="qName"    placeholder="Name"      class="flex-[1.2] bg-slate-700/50 text-slate-100 placeholder:text-slate-500 border border-transparent focus:border-indigo-500/60 rounded-md px-2.5 py-1 text-xs outline-none transition">
+      <input id="qProject" placeholder="Project"   list="projList" class="flex-1 bg-slate-700/50 text-slate-100 placeholder:text-slate-500 border border-transparent focus:border-indigo-500/60 rounded-md px-2.5 py-1 text-xs outline-none transition">
+      <input id="qCmd"     placeholder="Command"   list="cmdList" class="flex-[1.8] bg-slate-700/50 text-slate-100 placeholder:text-slate-500 border border-transparent focus:border-indigo-500/60 rounded-md px-2.5 py-1 text-xs font-mono outline-none transition">
+      <input id="qDir"     placeholder="Directory" class="flex-[1.8] bg-slate-700/50 text-slate-100 placeholder:text-slate-500 border border-transparent focus:border-indigo-500/60 rounded-md px-2.5 py-1 text-xs font-mono outline-none transition">
+      <button onclick="qPickDir()" class="h-7 w-7 rounded-md bg-slate-700/60 hover:bg-slate-600 border border-slate-600 flex items-center justify-center transition shrink-0" title="Browse folder">
+        <i data-lucide="folder-open" class="h-3.5 w-3.5 text-slate-400"></i>
+      </button>
+      <button onclick="doQuickAdd()" class="h-7 px-3 rounded-md bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-semibold transition-all flex items-center gap-1 shrink-0">
+        <i data-lucide="plus" class="h-3 w-3"></i> Add
+      </button>
+    </div>
+  </header>
+
+  <!-- Content area (LIGHT) -->
+  <div id="contentWrap" class="flex-1 overflow-y-auto bg-slate-50 relative">
+
+    <!-- Empty state -->
+    <div id="emptyState" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center p-10 anim-fade">
+      <div class="w-56 h-56 mb-6 relative">
+        <img src="assets/hero.png" alt="hero" class="w-full h-full object-contain drop-shadow-xl">
+        <div class="absolute inset-0 bg-indigo-400/20 blur-3xl -z-10 rounded-full"></div>
+      </div>
+      <h3 class="text-xl font-bold text-slate-800 mb-1">No Services Yet</h3>
+      <p class="text-slate-500 text-sm max-w-xs">Use the quick-add bar above or click <strong>Add Service</strong> to get started.</p>
+      <button onclick="openModal()" class="mt-6 px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold shadow-md shadow-indigo-200 transition-all hover:scale-105 active:scale-95">
+        Create First Service
+      </button>
+    </div>
+
+    <!-- Service groups -->
+    <div id="servicesList" class="p-6 space-y-6"></div>
+  </div>
+
+  <!-- Log Drawer (DARK TERMINAL) -->
+  <div id="logDrawer" style="display:none; height:240px" class="bg-[#0d1117] border-t border-slate-800 flex flex-col relative anim-in shrink-0">
+    <!-- Resizer -->
+    <div id="logResizer" class="absolute inset-x-0 top-0 h-1 cursor-ns-resize hover:bg-indigo-500/50 transition-colors z-20"></div>
+    <!-- Toolbar -->
+    <div class="h-9 bg-[#161b22] flex items-center px-4 gap-3 border-b border-slate-800 shrink-0">
+      <i data-lucide="terminal" class="h-3.5 w-3.5 text-indigo-400"></i>
+      <span class="text-[11px] font-semibold text-slate-300">Console <span class="text-indigo-400 font-mono" id="logSvcName"></span></span>
+      <div class="ml-auto flex gap-2">
+        <button onclick="copyAllLogs()" class="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-0.5 rounded hover:bg-slate-800 transition flex items-center gap-1.5">
+          <i data-lucide="copy" class="h-3 w-3"></i> Copy All
+        </button>
+        <button onclick="clearLogs()" class="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-0.5 rounded hover:bg-slate-800 transition">Clear</button>
+        <button onclick="closeLog()" class="h-5 w-5 rounded hover:bg-rose-900/40 hover:text-rose-400 text-slate-500 flex items-center justify-center transition">
+          <i data-lucide="x" class="h-3 w-3"></i>
+        </button>
+      </div>
+    </div>
+    <!-- Log output -->
+    <div id="logBody" class="flex-1 overflow-y-auto dark-scroll p-4 font-mono text-[11.5px] leading-relaxed text-slate-400 space-y-0.5 selectable"></div>
+    <!-- Terminal input -->
+    <div class="shrink-0 flex items-center gap-2 px-4 py-2 border-t border-slate-800 bg-[#0d1117] focus-within:bg-[#161b22] transition-colors">
+      <span class="text-emerald-400 font-bold font-mono">❯</span>
+      <input id="termInput" type="text" spellcheck="false" autocomplete="off" placeholder="Enter command..." class="flex-1 bg-transparent border-none outline-none text-slate-200 font-mono placeholder:text-slate-700 text-[12px]">
+      <kbd class="text-[9px] text-slate-700 font-mono border border-slate-800 rounded px-1.5 py-0.5 hidden sm:block">Enter ↵</kbd>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+
+<!-- ══════════════════════════════════════════
+     MODAL (LIGHT)
+══════════════════════════════════════════ -->
+<div id="modalBackdrop" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center anim-fade">
+  <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden anim-scale">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <h2 id="modalTitle" class="font-bold text-slate-800 text-base">New Service</h2>
+      <button onclick="closeModal()" class="h-8 w-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 transition">
+        <i data-lucide="x" class="h-4 w-4"></i>
+      </button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div class="space-y-1">
+          <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Service Name *</label>
+          <input id="fName" type="text" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 transition">
+        </div>
+        <div class="space-y-1">
+          <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Project *</label>
+          <input id="fProject" type="text" list="projList" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 transition">
+        </div>
+      </div>
+      <div class="space-y-1">
+        <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Command *</label>
+        <input id="fCmd" type="text" list="cmdList" onfocus="this.value=''" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 transition" placeholder="npm run dev">
+      </div>
+      <div class="space-y-1">
+        <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Execution Directory</label>
+        <div class="flex gap-2">
+          <input id="fDir" type="text" class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 transition" placeholder="C:\projects\my-app\backend">
+          <button onclick="pickDir()" class="px-4 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">Browse</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="space-y-1">
+          <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Local URL</label>
+          <input id="fLocalUrl" type="text" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 transition" placeholder="http://localhost:3000">
+        </div>
+        <div class="space-y-1">
+          <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Network URL</label>
+          <input id="fNetworkUrl" type="text" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 transition" placeholder="http://192.168.1.5:3000">
+        </div>
+      </div>
+      <div class="space-y-2">
+        <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Color</label>
+        <div id="colorRow" class="flex gap-2.5 pt-0.5"></div>
+      </div>
+    </div>
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50">
+      <button onclick="closeModal()" class="px-5 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-100 transition active:scale-95">Cancel</button>
+      <button onclick="saveService()" class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold shadow-sm shadow-indigo-200 transition active:scale-95">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Project Modal -->
+<div id="projModal" class="hidden fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center anim-fade">
+  <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden anim-scale">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <h2 class="font-bold text-slate-800 text-base">Project Settings</h2>
+      <button onclick="closeProjModal()" class="h-8 w-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 transition"><i data-lucide="x" class="h-4 w-4"></i></button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div class="space-y-1">
+        <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider pb-1 block">Project Name</label>
+        <div id="pNameDisplay" class="text-sm font-semibold text-slate-800 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100"></div>
+      </div>
+      <div class="space-y-1">
+        <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider pb-1 block">Root Project Path (for Antigravity)</label>
+        <div class="flex gap-2">
+          <input id="pPath" type="text" class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 transition" placeholder="C:\projects\my-project">
+          <button onclick="pickPPath()" class="px-4 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">Browse</button>
+        </div>
+        <p class="text-[10px] text-slate-400 mt-1">This path is used for the "Open with Antigravity" feature across all services in this project.</p>
+      </div>
+    </div>
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50">
+      <button onclick="closeProjModal()" class="px-5 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-100 transition">Cancel</button>
+      <button onclick="saveProject()" class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="hidden fixed bottom-5 right-5 z-[100] flex items-center gap-2.5 bg-slate-900 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-xl border border-slate-700">
+  <div id="toastDot" class="h-2 w-2 rounded-full bg-indigo-400"></div>
+  <span id="toastMsg">–</span>
+</div>
+
+<datalist id="projList"></datalist>
+<datalist id="cmdList">
+  <option value="npm run dev">
+  <option value="npm run start:dev">
+  <option value="npm start">
+  <option value="npm run build">
+  <option value="npm test">
+  <option value="yarn dev">
+  <option value="yarn start:dev">
+  <option value="pnpm dev">
+  <option value="pnpm run start:dev">
+  <option value="go run main.go">
+  <option value="python manage.py runserver">
+</datalist>
+
+<script>
+// ─────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────
+const COLORS = ['#6366f1','#ec4899','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ef4444','#14b8a6','#f97316'];
+let S = { services:[], projects:{}, view:'all', logOpenId:null, editId:null, editProj:null, color:COLORS[0] };
+let isResizing = false;
+let cmdHistory = [], histIdx = -1;
+
+// ─────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────
+async function init() {
+  buildColorRow();
+  if (window.api) {
+    const d = await window.api.loadData();
+    S.services = d.services || [];
+    S.projects = d.projects || {};
+    const running = await window.api.getRunningIds();
+    S.services.forEach(s => { if (!running.includes(s.id) && s.status==='running') s.status='stopped'; });
+    window.api.onLogLine(({id, line}) => { if (S.logOpenId===id) appendLog(line); });
+    window.api.onStatusChange(({id, status}) => { const s=S.services.find(x=>x.id===id); if(s){s.status=status;persist();render();} });
+    window.api.onUrlDetected(({id, local, network}) => {
+      const s=S.services.find(x=>x.id===id); if(!s) return;
+      if(local   && !s.localUrl)   s.localUrl   = local;
+      if(network && !s.networkUrl) s.networkUrl = network;
+      if(local   && !s.url)        s.url        = local;
+      persist(); render();
+    });
+  } else {
+    S.services=[
+      {id:1,name:'Frontend Web',project:'Alpha Core',cmd:'npm run dev',dir:'C:/dev/alpha/web',localUrl:'http://localhost:3000',networkUrl:'http://192.168.1.5:3000',status:'running',color:'#6366f1'},
+      {id:2,name:'API Server',project:'Alpha Core',cmd:'go run main.go',dir:'C:/dev/alpha/api',localUrl:'http://localhost:8080',networkUrl:null,status:'stopped',color:'#6366f1'},
+      {id:3,name:'Analytics',project:'Data Hub',cmd:'python manage.py run',dir:'C:/dev/hub',localUrl:null,networkUrl:null,status:'stopped',color:'#10b981'},
+    ];
+  }
+  render();
+}
+
+function persist() { if(window.api) window.api.saveData({services:S.services, projects:S.projects}); }
+
+// ─────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────
+function render(skipAnim = false) {
+  if (skipAnim) document.body.classList.add('no-anim');
+  
+  const all  = S.services;
+  const filt = filtered();
+  const running = all.filter(x=>x.status==='running').length;
+  const stopped = all.filter(x=>x.status!=='running').length;
+
+  set('cntAll', all.length);
+  set('cntRunning', running);
+  set('cntStopped', stopped);
+  set('statRun', `${running} running`);
+  set('statStop', `${stopped} idle`);
+
+  // Sidebar project nav
+  const projs = [...new Set(all.map(s=>s.project))];
+  document.getElementById('projNav').innerHTML = projs.map(p=>{
+    const col = all.find(s=>s.project===p)?.color||'#6366f1';
+    const cnt = all.filter(s=>s.project===p).length;
+    const active = S.view===`proj:${p}`;
+    return `<div class="group flex w-full items-center gap-1.5 px-3 py-1 rounded-lg transition-all hover:bg-slate-800/80 ${active?'bg-slate-800 text-white':'text-slate-400'}">
+      <button onclick="setView('proj:${encodeURIComponent(p)}')" class="flex-1 flex items-center gap-2.5 py-1.5 overflow-hidden text-left">
+        <div class="h-2 w-2 rounded-full shrink-0" style="background:${col}"></div>
+        <span class="truncate text-[12px] ${active?'font-semibold':''}">${p}</span>
+      </button>
+      <button onclick="openProjModal('${p}')" class="h-6 w-6 rounded-md flex items-center justify-center hover:bg-slate-700 opacity-0 group-hover:opacity-100 transition-opacity text-slate-500">
+        <i data-lucide="settings" class="h-3.5 w-3.5"></i>
+      </button>
+      <span class="text-[10px] font-mono text-slate-600 min-w-[12px] text-center">${cnt}</span>
+    </div>`;
+  }).join('');
+
+  // Datalist
+  document.getElementById('projList').innerHTML = projs.map(p=>`<option value="${p}">`).join('');
+
+  // Nav highlight
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('nav-active'));
+  const navMap = {all:'navAll', running:'navRunning', stopped:'navStopped'};
+  if (navMap[S.view]) document.getElementById(navMap[S.view]).classList.add('nav-active');
+
+  // Empty state
+  const groups = [...new Set(filt.map(s=>s.project))];
+  document.getElementById('emptyState').classList.toggle('hidden', groups.length>0);
+  document.getElementById('servicesList').classList.toggle('hidden', groups.length===0);
+
+  // List
+  document.getElementById('servicesList').innerHTML = groups.map(proj=>{
+    const svcs = filt.filter(s=>s.project===proj);
+    const col = svcs[0].color;
+    const runCnt = svcs.filter(s=>s.status==='running').length;
+    return `<div class="anim-in">
+      <!-- Group header -->
+      <div class="flex items-center gap-3 mb-3">
+        <div class="h-3 w-1 rounded-full" style="background:${col}"></div>
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">${proj}</span>
+        <button onclick="openProjModal('${proj}')" title="Project Settings" class="h-6 w-6 rounded bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition text-slate-400 hover:text-slate-600">
+          <i data-lucide="settings" class="h-3.5 w-3.5"></i>
+        </button>
+        <div class="h-4 w-px bg-slate-200 ml-1"></div>
+        <button onclick="openAntigravityByProj('${proj}')" title="Open with Antigravity" class="h-7 px-2 rounded-lg bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-sm transition-all flex items-center gap-2 group/ag">
+          <span class="text-[10px] font-semibold text-slate-400 group-hover/ag:text-indigo-600 transition-colors">Open with</span>
+          <svg xmlns:xlink="http://www.w3.org/1999/xlink" fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 869 113" class="h-3.5 w-auto">
+            <g clip-path="url(#clip_ag)" fill="none">
+              <path d="M839.836 109.037C839.654 109.462 839.442 109.918 839.199 110.403C838.956 110.949 838.805 111.283 838.744 111.405H830.732C831.096 110.616 831.491 109.735 831.916 108.764C832.341 107.854 832.856 106.731 833.463 105.396C833.828 104.607 834.161 103.878 834.465 103.211C834.768 102.543 835.102 101.784 835.466 100.935C835.891 100.146 836.377 99.1443 836.923 97.9304L841.111 88.8262L821.901 45.3083H830.277L844.844 79.8131H845.026L859.046 45.3083H867.422L843.387 100.753C843.144 101.299 842.75 102.149 842.203 103.302C841.718 104.516 841.232 105.669 840.747 106.761C840.322 107.915 840.018 108.673 839.836 109.037Z" fill="#202124"></path>
+              <path d="M792.471 52.3186V45.3084H800.665V32.1984H808.403V45.3084H819.784V52.3186H808.403V77.6282C808.403 80.238 808.919 82.1802 809.951 83.4548C811.044 84.6687 812.652 85.2757 814.776 85.2757C815.748 85.2757 816.658 85.1543 817.508 84.9115C818.357 84.608 819.177 84.2135 819.966 83.7279V91.2844C818.995 91.6486 817.993 91.9217 816.961 92.1038C815.93 92.3466 814.776 92.4679 813.593 92.4679C809.708 92.4679 806.583 91.3148 804.216 89.0084C801.848 86.6413 800.665 83.4852 800.665 79.54V52.3186H792.471Z" fill="#202124"></path>
+              <path d="M778.634 91.7396V45.3083H786.373V91.7396H778.634ZM782.458 36.7504C780.941 36.7504 779.636 36.2042 778.543 35.1117C777.451 34.0192 776.905 32.7142 776.905 31.1969C776.905 29.6188 777.451 28.3139 778.543 27.2821C779.636 26.1896 780.941 25.6433 782.458 25.6433C784.036 25.6433 785.341 26.1896 786.373 27.2821C787.465 28.3139 788.012 29.6188 788.012 31.1969C788.012 32.7142 787.465 34.0192 786.373 35.1117C785.341 36.2042 784.036 36.7504 782.458 36.7504Z" fill="#202124"></path>
+              <path d="M747.697 91.7395L728.943 45.3083H737.227L751.612 82.6354H751.794L766.361 45.3083H774.463L755.527 91.7395H747.697Z" fill="#202124"></path>
+              <path d="M704.033 93.1963C700.574 93.1963 697.539 92.5286 694.929 91.1934C692.319 89.8581 690.256 88.0373 688.738 85.7309C687.282 83.3638 686.553 80.6932 686.553 77.7192C686.553 74.3203 687.434 71.4677 689.194 69.1613C690.954 66.7942 693.321 65.0341 696.295 63.8809C699.269 62.667 702.546 62.06 706.127 62.06C708.191 62.06 710.103 62.2421 711.863 62.6063C713.623 62.9098 715.141 63.3043 716.415 63.7898C717.75 64.2147 718.752 64.6395 719.419 65.0644V62.2421C719.419 58.7218 718.175 55.9299 715.687 53.8663C713.198 51.8027 710.164 50.7709 706.583 50.7709C704.033 50.7709 701.636 51.3475 699.39 52.5007C697.205 53.5932 695.476 55.1409 694.201 57.1438L688.374 52.7738C689.588 50.9529 691.106 49.3749 692.926 48.0396C694.747 46.7043 696.811 45.6725 699.117 44.9442C701.484 44.2159 703.973 43.8517 706.583 43.8517C712.895 43.8517 717.841 45.5208 721.422 48.859C725.003 52.1972 726.794 56.6886 726.794 62.3332V91.7396H719.419V85.0936H719.055C718.266 86.4289 717.143 87.7338 715.687 89.0084C714.23 90.2223 712.5 91.2237 710.497 92.0127C708.555 92.8018 706.401 93.1963 704.033 93.1963ZM704.762 86.3682C707.432 86.3682 709.86 85.7005 712.045 84.3652C714.291 83.03 716.081 81.2395 717.417 78.9938C718.752 76.7481 719.419 74.29 719.419 71.6194C718.024 70.6483 716.263 69.8593 714.139 69.2523C712.075 68.6454 709.799 68.3419 707.311 68.3419C702.88 68.3419 699.633 69.2523 697.57 71.0732C695.506 72.894 694.474 75.1397 694.474 77.8102C694.474 80.3594 695.445 82.423 697.387 84.0011C699.33 85.5791 701.788 86.3682 704.762 86.3682Z" fill="#202124"></path>
+              <path d="M658.47 91.7395V45.3083H665.844V52.7737H666.209C666.815 51.0136 667.817 49.4962 669.213 48.2216C670.67 46.8863 672.308 45.8545 674.129 45.1262C676.011 44.3372 677.862 43.9427 679.683 43.9427C681.079 43.9427 682.171 44.0337 682.96 44.2158C683.749 44.3372 684.478 44.5496 685.145 44.8531V53.2289C684.174 52.7434 683.112 52.3792 681.959 52.1364C680.866 51.8936 679.743 51.7722 678.59 51.7722C676.344 51.7722 674.281 52.4095 672.399 53.6841C670.518 54.9587 669 56.6582 667.847 58.7825C666.755 60.9068 666.209 63.2435 666.209 65.7927V91.7395H658.47Z" fill="#202124"></path>
+              <path d="M626.539 112.861C622.594 112.861 619.195 112.194 616.343 110.858C613.551 109.584 611.275 107.945 609.514 105.942C607.815 103.939 606.601 101.906 605.873 99.8423L612.974 96.838C613.945 99.3871 615.584 101.511 617.89 103.211C620.257 104.971 623.14 105.851 626.539 105.851C631.395 105.851 635.127 104.425 637.737 101.572C640.347 98.7802 641.652 94.8654 641.652 89.8277V84.6384H641.288C639.831 86.8841 637.737 88.7959 635.006 90.374C632.275 91.8914 629.088 92.65 625.447 92.65C621.441 92.65 617.769 91.6182 614.431 89.5546C611.153 87.491 608.543 84.6384 606.601 80.9967C604.659 77.2943 603.688 73.0457 603.688 68.2509C603.688 63.456 604.659 59.2377 606.601 55.5961C608.543 51.8937 611.153 49.0107 614.431 46.9471C617.769 44.8835 621.441 43.8517 625.447 43.8517C629.088 43.8517 632.275 44.6407 635.006 46.2188C637.737 47.7361 639.831 49.648 641.288 51.9544H649.027V89.9188C649.027 95.0778 648.025 99.3568 646.022 102.756C644.08 106.155 641.409 108.673 638.01 110.312C634.672 112.012 630.849 112.861 626.539 112.861ZM626.539 85.6398C629.27 85.6398 631.789 84.9722 634.096 83.6369C636.402 82.2409 638.223 80.238 639.558 77.6282C640.954 75.0183 641.652 71.8925 641.652 68.2509C641.652 64.4878 640.954 61.3317 639.558 58.7825C638.223 56.1727 636.402 54.2001 634.096 52.8648C631.789 51.5295 629.27 50.8619 626.539 50.8619C623.808 50.8619 621.289 51.5599 618.983 52.9559C616.676 54.2911 614.825 56.2637 613.429 58.8736C612.033 61.4227 611.335 64.5485 611.335 68.2509C611.335 71.9532 612.033 75.1093 613.429 77.7192C614.825 80.2684 616.676 82.2409 618.983 83.6369C621.289 84.9722 623.808 85.6398 626.539 85.6398Z" fill="#202124"></path>
+              <path d="M588.94 91.7396V45.3083H596.679V91.7396H588.94ZM592.764 36.7504C591.247 36.7504 589.942 36.2042 588.849 35.1117C587.757 34.0192 587.211 32.7142 587.211 31.1969C587.211 29.6188 587.757 28.3139 588.849 27.2821C589.942 26.1896 591.247 25.6433 592.764 25.6433C594.342 25.6433 595.647 26.1896 596.679 27.2821C597.772 28.3139 598.318 29.6188 598.318 31.1969C598.318 32.7142 597.772 34.0192 596.679 35.1117C595.647 36.2042 594.342 36.7504 592.764 36.7504Z" fill="#202124"></path>
+              <path d="M554.23 52.3186V45.3084H562.424V32.1984H570.162V45.3084H581.542V52.3186H570.162V77.6282C570.162 80.238 570.678 82.1802 571.71 83.4548C572.802 84.6687 574.411 85.2757 576.535 85.2757C577.506 85.2757 578.417 85.1543 579.266 84.9115C580.116 84.608 580.936 84.2135 581.725 83.7279V91.2844C580.753 91.6486 579.752 91.9217 578.72 92.1038C577.688 92.3466 576.566 92.4679 575.352 92.4679C571.467 92.4679 568.341 91.3148 565.974 89.0084C563.607 86.6413 562.424 83.4852 562.424 79.54V52.3186H554.23Z" fill="#202124"></path>
+              <path d="M509.898 91.7396V45.3084H517.272V52.1365H517.636C518.85 49.8908 520.823 47.9486 523.554 46.3098C526.346 44.6711 529.381 43.8517 532.658 43.8517C538.364 43.8517 542.643 45.5208 545.495 48.859C548.409 52.1365 549.865 56.5065 549.865 61.969V91.7396H542.127V63.1525C542.127 58.6611 541.034 55.505 538.849 53.6842C536.725 51.8027 533.963 50.8619 530.564 50.8619C528.015 50.8619 525.77 51.5902 523.827 53.0469C521.885 54.4429 520.368 56.2637 519.275 58.5094C518.183 60.7551 517.636 63.1222 517.636 65.6107V91.7396H509.898Z" fill="#202124"></path>
+              <path d="M446.449 91.7396L471.212 26.5538H479.952L504.716 91.7396H496.249L489.603 73.8044H461.562L454.916 91.7396H446.449ZM486.963 66.5211L478.314 43.0323L475.764 36.0221H475.4L472.851 43.0323L464.202 66.5211H486.963Z" fill="#202124"></path>
+              <path d="M169.742 93.2042C149.435 93.2042 132.375 76.6583 132.375 56.3521C132.375 36.0458 149.435 19.5 169.742 19.5C180.973 19.5 188.959 23.9036 194.976 29.6531L187.881 36.7484C183.566 32.701 177.728 29.5542 169.742 29.5542C154.928 29.5542 143.34 41.5083 143.34 56.3422C143.34 71.176 154.928 83.1203 169.742 83.1203C179.351 83.1203 184.833 79.2609 188.336 75.7479C191.206 72.8682 193.096 68.7417 193.818 63.0714H169.484V53.0073H203.605C203.961 54.8083 204.14 56.9656 204.14 59.301C204.14 66.8516 202.071 76.2031 195.431 82.8531C188.969 89.5922 180.706 93.1844 169.742 93.1844V93.2042Z" fill="#202124"></path>
+              <path d="M255.242 69.474C255.242 83.1401 244.564 93.2042 231.472 93.2042C218.38 93.2042 207.702 83.1401 207.702 69.474C207.702 55.8078 218.38 45.7438 231.472 45.7438C244.564 45.7438 255.242 55.7188 255.242 69.474ZM244.831 69.474C244.831 60.9339 238.637 55.0953 231.462 55.0953C224.288 55.0953 218.093 60.9339 218.093 69.474C218.093 78.0141 224.288 83.8526 231.462 83.8526C238.637 83.8526 244.831 77.925 244.831 69.474Z" fill="#202124"></path>
+              <path d="M306.987 69.474C306.987 83.1401 296.309 93.2042 283.217 93.2042C270.125 93.2042 259.447 83.1401 259.447 69.474C259.447 55.8078 270.125 45.7438 283.217 45.7438C296.309 45.7438 306.987 55.7188 306.987 69.474ZM296.576 69.474C296.576 60.9339 290.382 55.0953 283.207 55.0953C276.033 55.0953 269.838 60.9339 269.838 69.474C269.838 78.0141 276.033 83.8526 283.207 83.8526C290.382 83.8526 296.576 77.925 296.576 69.474Z" fill="#202124"></path>
+              <path d="M356.486 47.1787V89.7802C356.486 107.306 346.155 114.5 333.943 114.5C322.444 114.5 315.527 106.771 312.924 100.478L321.999 96.7073C323.612 100.577 327.57 105.158 333.943 105.158C341.761 105.158 346.61 100.309 346.61 91.225V87.811H346.254C343.918 90.6906 339.425 93.2042 333.765 93.2042C321.91 93.2042 311.044 82.8729 311.044 69.563C311.044 56.2531 321.91 45.7438 333.765 45.7438C339.425 45.7438 343.918 48.2573 346.254 51.0479H346.61V47.1787H356.486ZM347.322 69.563C347.322 61.2011 341.751 55.0953 334.656 55.0953C327.56 55.0953 321.455 61.211 321.455 69.563C321.455 77.9151 327.471 83.8526 334.656 83.8526C341.84 83.8526 347.322 77.8261 347.322 69.563Z" fill="#202124"></path>
+              <path d="M374.397 22.0136V91.7594H363.977V22.0136H374.397Z" fill="#202124"></path>
+              <path d="M414.782 77.2917L422.867 82.6849C420.265 86.5542 413.971 93.2042 403.105 93.2042C389.637 93.2042 379.573 82.774 379.573 69.474C379.573 55.3625 389.726 45.7438 401.938 45.7438C414.149 45.7438 420.255 55.5406 422.234 60.8448L423.313 63.5365L391.606 76.6583C394.031 81.4182 397.801 83.8526 403.105 83.8526C408.409 83.8526 412.091 81.25 414.782 77.2917ZM389.904 68.7516L411.101 59.9443C409.933 56.9755 406.43 54.9073 402.304 54.9073C397.009 54.9073 389.637 59.5781 389.914 68.7516H389.904Z" fill="#202124"></path>
+              <path d="M89.6992 93.695C94.3659 97.195 101.366 94.8617 94.9492 88.445C75.6992 69.7783 79.7825 18.445 55.8659 18.445C31.9492 18.445 36.0325 69.7783 16.7825 88.445C9.78251 95.445 17.3658 97.195 22.0325 93.695C40.1159 81.445 38.9492 59.8617 55.8659 59.8617C72.7825 59.8617 71.6159 81.445 89.6992 93.695Z" fill="#3186FF"></path>
+              <mask id="mask_ag" maskUnits="userSpaceOnUse" x="13" y="18" width="85" height="78" style="mask-type: alpha;" fill="none">
+                <path d="M89.6992 93.695C94.3659 97.195 101.366 94.8617 94.9492 88.445C75.6992 69.7783 79.7825 18.445 55.8659 18.445C31.9492 18.445 36.0325 69.7783 16.7825 88.445C9.78251 95.445 17.3658 97.195 22.0325 93.695C40.1159 81.445 38.9492 59.8617 55.8659 59.8617C72.7825 59.8617 71.6159 81.445 89.6992 93.695Z" fill="black"></path>
+              </mask>
+              <g mask="url(#mask_ag)" fill="none">
+                <g filter="url(#filter0_ag)" fill="none"><ellipse cx="22.7873" cy="26.8098" rx="22.7873" ry="26.8098" transform="matrix(-0.112784 0.99362 -0.99362 -0.112781 66.2473 -15.5344)" fill="#FFE432"></ellipse></g>
+                <g filter="url(#filter1_ag)" fill="none"><ellipse cx="96.491" cy="35.1231" rx="29.5007" ry="30.1492" transform="rotate(76.9243 96.491 35.1231)" fill="#FC413D"></ellipse></g>
+                <g filter="url(#filter2_ag)" fill="none"><ellipse cx="9.02988" cy="41.6647" rx="30.832" ry="39.9417" transform="rotate(74.1257 9.02988 41.6647)" fill="#00B95C"></ellipse></g>
+                <g filter="url(#filter3_ag)" fill="none"><ellipse cx="9.02988" cy="41.6647" rx="30.832" ry="39.9417" transform="rotate(74.1257 9.02988 41.6647)" fill="#00B95C"></ellipse></g>
+                <g filter="url(#filter4_ag)" fill="none"><ellipse cx="11.2212" cy="42.8915" rx="30.22" ry="33.2695" transform="rotate(45.6065 11.2212 42.8915)" fill="#00B95C"></ellipse></g>
+                <g filter="url(#filter5_ag)" fill="none"><ellipse cx="75.7546" cy="104.822" rx="29.0177" ry="27.943" transform="rotate(76.9243 75.7546 104.822)" fill="#3186FF"></ellipse></g>
+                <g filter="url(#filter6_ag)" fill="none"><ellipse cx="33.5661" cy="35.4043" rx="33.5661" ry="35.4043" transform="matrix(-0.409539 0.912293 -0.912294 -0.409537 101.25 -15.1674)" fill="#FBBC04"></ellipse></g>
+                <g filter="url(#filter7_ag)" fill="none"><path d="M2.56802 149.695C-15.8116 142.48 15.5987 83.1163 23.4093 63.2203C31.22 43.3244 52.4514 33.0447 70.831 40.26C89.2107 47.4753 110.996 87.2162 103.185 107.112C95.3742 127.008 20.9477 156.91 2.56802 149.695Z" fill="#3186FF"></path></g>
+                <g filter="url(#filter8_ag)" fill="none"><path d="M113.934 75.8079C109.013 81.5509 96.1724 78.6224 85.253 69.2667C74.3335 59.911 69.4704 47.6711 74.391 41.928C79.3116 36.185 92.1525 39.1136 103.072 48.4692C113.991 57.8249 118.855 70.0648 113.934 75.8079Z" fill="#749BFF"></path></g>
+                <g filter="url(#filter9_ag)" fill="none"><ellipse cx="92.611" cy="23.7962" rx="44.2411" ry="27.5016" transform="rotate(34.0763 92.611 23.7962)" fill="#FC413D"></ellipse></g>
+                <g filter="url(#filter10_ag)" fill="none"><ellipse cx="23.4949" cy="29.5887" rx="23.7071" ry="13.7869" transform="rotate(112.516 23.4949 29.5887)" fill="#FFEE48"></ellipse></g>
+              </g>
+            </g>
+            <defs>
+              <filter id="filter0_ag" x="2.49348" y="-26.5423" width="69.0899" height="61.2525" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="3.89034"></feGaussianBlur></filter>
+              <filter id="filter1_ag" x="28.7524" y="-32.0333" width="135.477" height="134.313" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="18.8078"></feGaussianBlur></filter>
+              <filter id="filter2_ag" x="-62.2884" y="-21.9253" width="142.637" height="127.18" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="15.9884"></feGaussianBlur></filter>
+              <filter id="filter3_ag" x="-62.2884" y="-21.9253" width="142.637" height="127.18" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="15.9884"></feGaussianBlur></filter>
+              <filter id="filter4_ag" x="-52.5697" y="-20.8346" width="127.582" height="127.452" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="15.9884"></feGaussianBlur></filter>
+              <filter id="filter5_ag" x="17.3619" y="45.4646" width="116.786" height="118.715" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="15.1937"></feGaussianBlur></filter>
+              <filter id="filter6_ag" x="-7.44765" y="-60.4737" width="125.303" height="122.858" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="13.7698"></feGaussianBlur></filter>
+              <filter id="filter7_ag" x="-27.7086" y="13.3597" width="157.119" height="162.029" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="12.297"></feGaussianBlur></filter>
+              <filter id="filter8_ag" x="50.4638" y="16.981" width="87.3973" height="83.7738" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="11.0036"></feGaussianBlur></filter>
+              <filter id="filter9_ag" x="34.2604" y="-28.457" width="116.701" height="104.506" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="9.29385"></feGaussianBlur></filter>
+              <filter id="filter10_ag" x="-15.1522" y="-15.9493" width="77.2941" height="91.076" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="11.5027"></feGaussianBlur></filter>
+              <clipPath id="clip_ag"><rect width="869" height="113" fill="white"></rect></clipPath>
+            </defs>
+          </svg>
+        </button>
+        <span class="text-[10px] text-slate-400 font-medium">${runCnt}/${svcs.length} running</span>
+        <div class="flex-1 h-px bg-slate-200"></div>
+        <button onclick="groupAction('${proj}','start')" class="text-[10px] font-semibold text-emerald-600 hover:text-emerald-700 px-2 py-1 rounded hover:bg-emerald-50 transition">▶ All</button>
+        <button onclick="groupAction('${proj}','stop')"  class="text-[10px] font-semibold text-rose-500 hover:text-rose-600 px-2 py-1 rounded hover:bg-rose-50 transition">■ Stop</button>
+      </div>
+      <!-- Cards -->
+      <div class="space-y-1.5" ondragover="event.preventDefault()">
+        ${svcs.map(svcCard).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  lucide.createIcons();
+  if (skipAnim) {
+    setTimeout(() => document.body.classList.remove('no-anim'), 50);
+  }
+}
+
+function svcCard(s) {
+  const r = s.status==='running', st = s.status==='starting', err = s.status==='error';
+  const localUrl   = s.localUrl   || s.url || null;
+  const networkUrl = s.networkUrl || null;
+  
+  const mkBadge = (href, label, dotColor) => {
+    const display = href.replace(/^https?:\/\//, '');
+    return `
+    <div class="group/url inline-flex items-center rounded-md border overflow-hidden ${label==='Local' ? 'border-indigo-200 bg-indigo-50' : 'border-emerald-200 bg-emerald-50'} transition-all hover:shadow-sm">
+      <button onclick="openUrl('${href}')" title="Open ${href}"
+        class="flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold transition-colors ${label==='Local' ? 'text-indigo-600 hover:bg-indigo-100' : 'text-emerald-700 hover:bg-emerald-100'}">
+        <span class="h-1.5 w-1.5 rounded-full ${dotColor}"></span>
+        <span class="font-mono font-medium">${label}</span>
+        <span class="opacity-60 max-w-[120px] truncate">${display}</span>
+        <i data-lucide="external-link" class="h-2.5 w-2.5 opacity-50"></i>
+      </button>
+      <button onclick="copyUrl('${href}')" title="Copy URL"
+        class="h-full px-1.5 border-l transition-colors opacity-0 group-hover/url:opacity-100 ${label==='Local' ? 'border-indigo-200 text-indigo-400 hover:bg-indigo-100 hover:text-indigo-700' : 'border-emerald-200 text-emerald-400 hover:bg-emerald-100 hover:text-emerald-700'}">
+        <i data-lucide="copy" class="h-2.5 w-2.5"></i>
+      </button>
+    </div>`;
+  };
+
+  return `<div class="group bg-white border border-slate-200 rounded-xl px-2 py-2.5 flex items-center gap-2 hover:border-slate-300 hover:shadow-sm transition-all anim-in"
+       draggable="true" 
+       ondragstart="handleDragStart(event, ${s.id})"
+       ondragover="handleDragOver(event)"
+       ondragleave="handleDragLeave(event)"
+       ondrop="handleDrop(event, ${s.id})"
+       ondragend="handleDragEnd(event)">
+    
+    <div class="cursor-grab active:cursor-grabbing px-1 text-slate-300 hover:text-slate-400 transition-colors shrink-0 -ml-1">
+      <i data-lucide="grip-vertical" class="h-4 w-4"></i>
+    </div>
+
+    <div class="h-2 w-2 rounded-full ${r ? 'bg-emerald-500 dot-running' : st ? 'bg-amber-400 animate-pulse' : err ? 'bg-rose-500' : 'bg-slate-300'} shrink-0 ml-1"></div>
+    
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <span class="text-sm font-semibold text-slate-800 leading-none">${s.name}</span>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          ${localUrl   ? mkBadge(localUrl,   'Local',   'bg-indigo-400')   : ''}
+          ${networkUrl ? mkBadge(networkUrl, 'Network', 'bg-emerald-500')  : ''}
+        </div>
+      </div>
+      <div class="text-[10px] font-mono text-slate-400 truncate mt-1 flex items-center gap-2">
+        <span class="bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 scale-90 origin-left">${s.cmd}</span>
+        ${s.dir ? `<span class="opacity-70 truncate">${s.dir}</span>` : ''}
+      </div>
+    </div>
+
+    <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity pr-1">
+      ${r
+        ? `<button onclick="doStop(${s.id})"    title="Stop"    class="h-7 w-7 rounded-lg hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center transition text-slate-400"><i data-lucide="square" class="h-3.5 w-3.5"></i></button>`
+        : `<button onclick="doStart(${s.id})"   title="Start"   class="h-7 w-7 rounded-lg hover:bg-emerald-50 hover:text-emerald-600 flex items-center justify-center transition text-slate-400"><i data-lucide="play" class="h-3.5 w-3.5"></i></button>`
+      }
+      <button onclick="doRestart(${s.id})" title="Restart" class="h-7 w-7 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 flex items-center justify-center transition text-slate-400"><i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i></button>
+      <button onclick="openLog(${s.id})"   title="Log"     class="h-7 w-7 rounded-lg hover:bg-slate-100 hover:text-slate-800 flex items-center justify-center transition text-slate-400"><i data-lucide="terminal" class="h-3.5 w-3.5"></i></button>
+      <div class="h-4 w-px bg-slate-200 mx-0.5"></div>
+      <button onclick="openDir(${s.id})"   title="Folder"  class="h-7 w-7 rounded-lg hover:bg-slate-100 flex items-center justify-center transition text-slate-400"><i data-lucide="folder" class="h-3.5 w-3.5"></i></button>
+      <button onclick="openModal(${s.id})" title="Edit"    class="h-7 w-7 rounded-lg hover:bg-slate-100 flex items-center justify-center transition text-slate-400"><i data-lucide="settings-2" class="h-3.5 w-3.5"></i></button>
+      <button onclick="deleteSvc(${s.id})" title="Delete"  class="h-7 w-7 rounded-lg hover:bg-rose-50 hover:text-rose-500 flex items-center justify-center transition text-slate-400"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+    </div>
+  </div>`;
+}
+
+
+// ─────────────────────────────────────────
+// ACTIONS
+// ─────────────────────────────────────────
+function filtered() {
+  if (S.view==='running') return S.services.filter(s=>s.status==='running');
+  if (S.view==='stopped') return S.services.filter(s=>s.status!=='running');
+  if (S.view.startsWith('proj:')) return S.services.filter(s=>s.project===decodeURIComponent(S.view.slice(5)));
+  return S.services;
+}
+
+function setView(v) {
+  S.view = v;
+  const t = {all:'All Services', running:'Active Processes', stopped:'Inactive Services'};
+  set('viewTitle', t[v] || decodeURIComponent(v.slice(5)));
+  render();
+}
+
+async function doStart(id) {
+  const s = S.services.find(x=>x.id===id); if(!s) return;
+  s.status='starting'; render();
+  if (window.api) await window.api.startService(s);
+  else setTimeout(()=>{s.status='running';render();},1000);
+}
+
+async function doStop(id) {
+  const s = S.services.find(x=>x.id===id); if(!s) return;
+  s.status='stopped'; persist(); render();
+  if (window.api) await window.api.stopService(id);
+}
+
+async function doRestart(id) {
+  const s = S.services.find(x=>x.id===id); if(!s) return;
+  s.status='starting'; render();
+  if (window.api) await window.api.restartService(s);
+  else setTimeout(()=>{s.status='running';render();},1200);
+}
+
+function groupAction(proj, act) {
+  S.services.filter(s=>s.project===proj).forEach(s=>{
+    if (act==='start'&&s.status!=='running') doStart(s.id);
+    if (act==='stop'&&s.status==='running')  doStop(s.id);
+  });
+}
+
+function openUrl(url) { window.api ? window.api.openUrl(url) : window.open(url,'_blank'); }
+
+function openDir(id) {
+  const s=S.services.find(x=>x.id===id);
+  if(s?.dir&&window.api) window.api.openFolder(s.dir);
+}
+
+// ─────────────────────────────────────────
+// DRAG & DROP
+// ─────────────────────────────────────────
+let draggedId = null;
+
+function handleDragStart(e, id) {
+  draggedId = id;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function handleDragOver(e) {
+  e.preventDefault();
+  const card = e.currentTarget;
+  if (card.classList.contains('dragging')) return;
+  card.classList.add('drag-over');
+}
+function handleDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function handleDragEnd(e) { e.currentTarget.classList.remove('dragging'); }
+
+function handleDrop(e, targetId) {
+  e.preventDefault();
+  const card = e.currentTarget;
+  card.classList.remove('drag-over');
+  if (draggedId === targetId) return;
+
+  const fromIdx = S.services.findIndex(x => x.id === draggedId);
+  const toIdx   = S.services.findIndex(x => x.id === targetId);
+  if (fromIdx === -1 || toIdx === -1) return;
+
+  // Move in array
+  const [removed] = S.services.splice(fromIdx, 1);
+  S.services.splice(toIdx, 0, removed);
+
+  persist();
+  render(true); // Skip animations for seamless reorder
+}
+
+function deleteSvc(id) {
+  if(!confirm('Remove this service?')) return;
+  S.services=S.services.filter(x=>x.id!==id);
+  if(S.logOpenId===id) closeLog();
+  persist(); render(); toast('Service removed','error');
+}
+
+// ─────────────────────────────────────────
+// LOG / CONSOLE
+// ─────────────────────────────────────────
+async function openLog(id) {
+  const s=S.services.find(x=>x.id===id); if(!s) return;
+  S.logOpenId=id;
+  set('logSvcName', s.name);
+  const drawer=document.getElementById('logDrawer');
+  drawer.style.display='flex';
+  document.getElementById('logBody').innerHTML='';
+  if (window.api) {
+    const logs=await window.api.getLogs(id);
+    logs.forEach(l=>appendLog(l));
+  } else {
+    appendLog({time:now(),type:'info',text:`Starting: ${s.cmd}`});
+    appendLog({time:now(),type:'success',text:`✓ Process ready at ${s.url||'localhost'}`});
+    appendLog({time:now(),type:'plain',text:'GET / 200 12ms'});
+  }
+  setTimeout(()=>document.getElementById('termInput').focus(),80);
+}
+
+function appendLog(l) {
+  const body=document.getElementById('logBody');
+  const d=document.createElement('div');
+  d.className='flex gap-3';
+  const colMap={info:'text-blue-400',success:'text-emerald-400',warn:'text-amber-400',error:'text-rose-400',plain:'text-slate-500'};
+  d.innerHTML=`<span class="text-slate-700 shrink-0 select-none">${l.time}</span><span class="${colMap[l.type]||'text-slate-300'}">${esc(l.text)}</span>`;
+  body.appendChild(d);
+  body.scrollTop=body.scrollHeight;
+}
+
+function clearLogs() { document.getElementById('logBody').innerHTML=''; }
+function closeLog()  { S.logOpenId=null; document.getElementById('logDrawer').style.display='none'; }
+
+// Terminal input
+document.getElementById('termInput').addEventListener('keydown', async e=>{
+  if(!S.logOpenId) return;
+  if(e.ctrlKey&&e.key==='c'){
+    appendLog({time:now(),type:'error',text:'^C — Stopping process…'});
+    doStop(S.logOpenId);
+    e.target.value=''; e.preventDefault(); return;
+  }
+  if(e.key==='Enter'){
+    const text=e.target.value;
+    appendLog({time:now(),type:'info',text:`❯ ${text}`});
+    if(window.api) await window.api.sendInput(S.logOpenId,text);
+    if(text.trim()){cmdHistory.unshift(text); if(cmdHistory.length>50)cmdHistory.pop();}
+    histIdx=-1; e.target.value=''; e.preventDefault();
+  }
+  if(e.key==='ArrowUp')  { histIdx=Math.min(histIdx+1,cmdHistory.length-1); e.target.value=cmdHistory[histIdx]||''; e.preventDefault(); }
+  if(e.key==='ArrowDown'){ histIdx=Math.max(histIdx-1,-1); e.target.value=histIdx>=0?cmdHistory[histIdx]:''; e.preventDefault(); }
+});
+
+// Resizer
+document.getElementById('logResizer').addEventListener('mousedown',e=>{isResizing=true;document.body.style.cursor='ns-resize';e.preventDefault();});
+document.addEventListener('mousemove',e=>{ if(!isResizing)return; const h=window.innerHeight-e.clientY; if(h>80&&h<window.innerHeight*.8)document.getElementById('logDrawer').style.height=h+'px'; });
+document.addEventListener('mouseup', ()=>{ if(isResizing){isResizing=false;document.body.style.cursor='';} });
+
+// ─────────────────────────────────────────
+// QUICK ADD
+// ─────────────────────────────────────────
+async function qPickDir() { if(window.api){const d=await window.api.pickFolder();if(d)document.getElementById('qDir').value=d;} }
+
+function doQuickAdd() {
+  const name=val('qName'), project=val('qProject')||'Uncategorized', cmd=val('qCmd'), dir=val('qDir');
+  if(!name||!cmd){ toast('Name & Command required','error'); return; }
+  const col=S.services.find(s=>s.project===project)?.color||COLORS[Math.floor(Math.random()*COLORS.length)];
+  S.services.push({id:Date.now(),name,project,cmd,dir,url:'',status:'stopped',color:col});
+  persist(); render(); toast('Service added');
+  ['qName','qCmd','qDir'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('qName').focus();
+}
+
+// ─────────────────────────────────────────
+// MODAL
+// ─────────────────────────────────────────
+function openModal(id) {
+  S.editId=id||null;
+  const s=id?S.services.find(x=>x.id===id):null;
+  set('modalTitle', id?'Edit Service':'New Service');
+  document.getElementById('fName').value       = s?.name||'';
+  document.getElementById('fProject').value    = s?.project||'';
+  document.getElementById('fCmd').value        = s?.cmd||'';
+  document.getElementById('fDir').value        = s?.dir||'';
+  document.getElementById('fLocalUrl').value   = s?.localUrl || s?.url || '';
+  document.getElementById('fNetworkUrl').value = s?.networkUrl || '';
+  S.color=s?s.color:COLORS[0];
+  buildColorRow();
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('fName').focus(),50);
+}
+
+function closeModal() { document.getElementById('modalBackdrop').classList.add('hidden'); }
+
+function saveService() {
+  const name=val('fName'),project=val('fProject'),cmd=val('fCmd'),dir=val('fDir'),localUrl=val('fLocalUrl'),networkUrl=val('fNetworkUrl');
+  if(!name||!project||!cmd){ toast('Required fields missing','error'); return; }
+  const data = {name,project,cmd,dir,localUrl,networkUrl,url:localUrl,color:S.color};
+  if(S.editId) Object.assign(S.services.find(x=>x.id===S.editId), data);
+  else S.services.push({id:Date.now(), ...data, status:'stopped'});
+  persist(); render(); closeModal(); toast('Saved!');
+}
+
+function buildColorRow() {
+  document.getElementById('colorRow').innerHTML=COLORS.map(c=>`
+    <div onclick="S.color='${c}';buildColorRow()" class="h-6 w-6 rounded-full cursor-pointer transition-all hover:scale-110 ${S.color===c?'ring-2 ring-offset-2 ring-slate-900 scale-110':''}" style="background:${c}"></div>
+  `).join('');
+}
+
+async function pickDir() { if(window.api){const d=await window.api.pickFolder();if(d)document.getElementById('fDir').value=d;} }
+async function pickPPath() { if(window.api){const d=await window.api.pickFolder();if(d)document.getElementById('pPath').value=d;} }
+
+function openAntigravityByProj(projName) {
+  const pData = S.projects[projName] || {};
+  const path = pData.path;
+  if (!path) { 
+    toast('Please set Project Path in settings first', 'warn'); 
+    openProjModal(projName);
+    return; 
+  }
+  if (window.api) window.api.openAntigravity(path);
+}
+
+// Project Modal Logic
+function openProjModal(name) {
+  S.editProj = name;
+  document.getElementById('pNameDisplay').innerText = name;
+  document.getElementById('pPath').value = S.projects[name]?.path || '';
+  document.getElementById('projModal').classList.remove('hidden');
+  lucide.createIcons();
+}
+function closeProjModal() { document.getElementById('projModal').classList.add('hidden'); }
+function saveProject() {
+  const path = document.getElementById('pPath').value.trim();
+  if (!S.projects[S.editProj]) S.projects[S.editProj] = {};
+  S.projects[S.editProj].path = path;
+  persist(); closeProjModal(); toast(`Settings for ${S.editProj} saved`);
+}
+
+// ─────────────────────────────────────────
+// BACKUP
+// ─────────────────────────────────────────
+async function doExport() {
+  const data={version:1,exportedAt:new Date().toISOString(),services:S.services};
+  if(window.api){const r=await window.api.exportBackup(data);if(r.ok)toast('Backup exported');}
+}
+async function doImport() {
+  if(window.api){const d=await window.api.importBackup();if(d?.services){const ex=new Set(S.services.map(s=>s.id));let n=0;d.services.forEach(s=>{if(!ex.has(s.id)){S.services.push(s);n++;}});persist();render();toast(`Imported ${n} services`);}}
+}
+
+// ─────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────
+let _toastT;
+function toast(msg, type='ok') {
+  const el=document.getElementById('toast'), dot=document.getElementById('toastDot');
+  document.getElementById('toastMsg').innerText=msg;
+  dot.className=`h-2 w-2 rounded-full ${type==='error'?'bg-rose-400':'bg-indigo-400'}`;
+  el.classList.remove('hidden','toast-hide'); el.classList.add('toast-show');
+  clearTimeout(_toastT); _toastT=setTimeout(()=>{el.classList.add('toast-hide');setTimeout(()=>el.classList.add('hidden'),200);},3000);
+}
+
+function set(id,v) { document.getElementById(id).innerText=v; }
+function val(id)   { return document.getElementById(id).value.trim(); }
+function now()     { return new Date().toLocaleTimeString('vi-VN'); }
+function esc(t)    { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function copyUrl(url) {
+  navigator.clipboard.writeText(url)
+    .then(() => toast('✓ Copied: ' + url.replace(/^https?:\/\//, '')))
+    .catch(() => {
+      // Fallback for Electron context
+      const el = document.createElement('input');
+      el.value = url; document.body.appendChild(el);
+      el.select(); document.execCommand('copy');
+      document.body.removeChild(el);
+      toast('✓ Copied: ' + url.replace(/^https?:\/\//, ''));
+    });
+}
+
+function copyAllLogs() {
+  const body = document.getElementById('logBody');
+  const text = body.innerText;
+  if (!text) { toast('No logs to copy', 'warn'); return; }
+  
+  navigator.clipboard.writeText(text)
+    .then(() => toast('✓ Copied all logs to clipboard'))
+    .catch(() => {
+      const el = document.createElement('textarea');
+      el.value = text; document.body.appendChild(el);
+      el.select(); document.execCommand('copy');
+      document.body.removeChild(el);
+      toast('✓ Copied all logs to clipboard');
+    });
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') { closeModal(); closeLog(); }
+  if(e.key==='Enter'&&document.getElementById('modalBackdrop').classList.contains('hidden')===false) {
+    if(e.target.tagName!=='BUTTON') saveService();
+  }
+});
+
+init();
+</script>
+</body>
+</html>

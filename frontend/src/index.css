@@ -1,0 +1,195 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-primary: #0f1117;
+  --bg-secondary: #1a1d26;
+  --bg-tertiary: #21263a;
+  --border: #2a2f3a;
+  --accent: #00ff9c;
+  --accent-dark: #00d47f;
+  --danger: #ff4d4f;
+  --warning: #f59e0b;
+  --text-primary: #e8eaf0;
+  --text-secondary: #8892a4;
+}
+
+html, body, #root {
+  height: 100%;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2f3a;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a4050;
+}
+
+/* Selection */
+::selection {
+  background: rgba(0, 255, 156, 0.2);
+  color: var(--accent);
+}
+
+/* Custom utilities */
+@layer utilities {
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+  
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  .text-gradient-green {
+    background: linear-gradient(135deg, #00ff9c, #00d47f);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .glow-green {
+    box-shadow: 0 0 20px rgba(0, 255, 156, 0.3);
+  }
+
+  .glow-green-sm {
+    box-shadow: 0 0 10px rgba(0, 255, 156, 0.15);
+  }
+
+  .border-glow-green {
+    border-color: rgba(0, 255, 156, 0.5);
+    box-shadow: 0 0 10px rgba(0, 255, 156, 0.1);
+  }
+
+  .card-base {
+    @apply bg-bg-card border border-border rounded-xl;
+  }
+
+  .btn-base {
+    @apply px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer select-none;
+  }
+
+  .btn-primary {
+    @apply btn-base bg-accent text-bg-primary hover:bg-accent-dark active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply btn-base bg-bg-tertiary text-text-primary border border-border hover:border-border-light active:scale-95;
+  }
+
+  .btn-danger {
+    @apply btn-base bg-danger/20 text-danger border border-danger/30 hover:bg-danger/30 active:scale-95;
+  }
+
+  .btn-ghost {
+    @apply btn-base text-text-secondary hover:text-text-primary hover:bg-bg-tertiary active:scale-95;
+  }
+}
+
+/* Terminal/Log styles */
+.log-container {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.log-line {
+  padding: 1px 0;
+  word-break: break-all;
+}
+
+.log-line.stderr {
+  color: #ff6b6b;
+}
+
+.log-line.stdout {
+  color: #b0bec5;
+}
+
+/* Status indicator animation */
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+.status-online {
+  animation: statusPulse 2s ease-in-out infinite;
+}
+
+/* Neon border animation */
+@keyframes neonBorder {
+  0%, 100% { border-color: rgba(0, 255, 156, 0.3); }
+  50% { border-color: rgba(0, 255, 156, 0.7); }
+}
+
+/* Slide animations */
+@keyframes slideInFromRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInFromBottom {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-slide-right {
+  animation: slideInFromRight 0.3s ease-out;
+}
+
+.animate-slide-bottom {
+  animation: slideInFromBottom 0.3s ease-out;
+}
+
+/* Loading shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, #1a1d26 25%, #21263a 50%, #1a1d26 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Tooltip */
+.tooltip {
+  @apply absolute z-50 px-2 py-1 text-xs bg-bg-tertiary border border-border rounded-md text-text-primary whitespace-nowrap pointer-events-none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* Progress bar */
+.progress-bar {
+  @apply h-1 rounded-full bg-bg-tertiary overflow-hidden;
+}
+
+.progress-bar-fill {
+  @apply h-full rounded-full transition-all duration-500;
+}

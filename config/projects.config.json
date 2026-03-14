@@ -1,0 +1,66 @@
+{
+    "projects": [
+        {
+            "name": "reusebase",
+            "displayName": "Reusebase",
+            "color": "#00ff9c",
+            "processes": [
+                {
+                    "name": "reusebase-backend",
+                    "displayName": "Backend",
+                    "cwd": "C:/code/c2026-02-04-reusebase-com/backend",
+                    "script": "bun",
+                    "args": "run dev",
+                    "port": 3000
+                },
+                {
+                    "name": "reusebase-admin",
+                    "displayName": "Admin",
+                    "cwd": "C:/code/c2026-02-04-reusebase-com/frontend-admin",
+                    "script": "npm",
+                    "args": "run dev",
+                    "port": 3001
+                },
+                {
+                    "name": "reusebase-user",
+                    "displayName": "User App",
+                    "cwd": "C:/code/c2026-02-04-reusebase-com/frontend-user",
+                    "script": "npm",
+                    "args": "run dev",
+                    "port": 3002
+                }
+            ]
+        },
+        {
+            "name": "worddd",
+            "displayName": "Worddd",
+            "color": "#a855f7",
+            "processes": [
+                {
+                    "name": "worddd-backend",
+                    "displayName": "Backend",
+                    "cwd": "C:/code/c2025-12-09-worddd/apps/backend",
+                    "script": "npm",
+                    "args": "run start:dev",
+                    "port": 4000
+                },
+                {
+                    "name": "worddd-frontend",
+                    "displayName": "Frontend",
+                    "cwd": "C:/code/c2025-12-09-worddd/apps/frontend",
+                    "script": "npm",
+                    "args": "run dev",
+                    "port": 4001
+                },
+                {
+                    "name": "worddd-admin",
+                    "displayName": "Admin",
+                    "cwd": "C:/code/c2025-12-09-worddd/apps/admin",
+                    "script": "npm",
+                    "args": "run dev",
+                    "port": 4002
+                }
+            ]
+        }
+    ]
+}
