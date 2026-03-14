@@ -1,99 +1,99 @@
-# 🚀 DevLaunch — Quản lý Localhost
+# <img src="assets/icon.png" width="32" height="32" align="center" /> DevLaunch — Professional Localhost Orchestrator
 
-Phần mềm desktop để quản lý và khởi động các dự án localhost trên Windows.
+[![Status](https://img.shields.io/badge/Status-Beta-indigo.svg?style=flat-square)]()
+[![Platform](https://img.shields.io/badge/Platform-Windows-0078d4.svg?style=flat-square)]()
+[![License](https://img.shields.io/badge/License-MIT-emerald.svg?style=flat-square)]()
 
----
+**DevLaunch** là giải pháp quản trị quy trình làm việc (workflow) tối thượng dành cho các nhà phát triển phần mềm hiện đại. Được xây dựng trên nền tảng Electron với triết lý thiết kế tinh giản, DevLaunch biến việc quản lý hàng chục tiến trình `localhost` phức tạp trở thành một trải nghiệm mượt mà và đầy cảm hứng.
 
-## Yêu cầu
-
-- **Node.js** v18 trở lên → https://nodejs.org
-- **npm** (đi kèm với Node.js)
-
-Kiểm tra bằng cách mở Command Prompt và gõ:
-```
-node --version
-npm --version
-```
+![Hero Illustration](assets/hero.png)
 
 ---
 
-## Cài đặt & Chạy
+## 💎 Điểm Nhấn Công Nghệ
 
-### Bước 1 — Giải nén
-Giải nén thư mục `devlaunch` ra bất kỳ nơi nào trên máy, ví dụ `C:\Tools\devlaunch`
+| Tính năng | Mô tả chuyên sâu |
+| :--- | :--- |
+| **Smart Process Manager** | Quản lý vòng đời tiến trình (Start/Stop/Restart) với cơ chế giải phóng Resource triệt để. |
+| **Neural URL Detection** | Tự động nhận diện và trích xuất URL (Local/Network) từ log hệ thống bằng thuật toán Regex chính xác. |
+| **Fluid UI/UX** | Giao diện hiện đại, hỗ trợ **Kéo & Thả (Drag & Drop)** mượt mà để tùy biến thứ tự công việc. |
+| **Real-time Console** | Hệ thống stream log thời gian thực với mã màu trực quan, hỗ trợ tương tác Shell trực tiếp. |
+| **Enterprise Backup** | Xuất nhập cấu hình dự án cực nhanh, đảm bảo tính di động của môi trường làm việc. |
+| **Antigravity Sync** | Tích hợp sâu với hệ sinh thái Antigravity, mở dự án chỉ với một cú click. |
 
-### Bước 2 — Cài thư viện
-Mở Command Prompt, vào thư mục vừa giải nén:
-```
-cd C:\Tools\devlaunch
+---
+
+## 🛠 Yêu Cầu Hệ Thống
+
+*   **Runtime:** Node.js v18.x hoặc cao hơn.
+*   **OS:** Windows 10/11 (Hỗ trợ tốt nhất cho môi trường x64).
+*   **Build Tools:** `npm` hoặc `pnpm` (Khuyến nghị).
+
+---
+
+## 🚀 Triển Khai Nhanh
+
+### 1. Cài đặt Phụ thuộc
+Mở terminal tại thư mục gốc của dự án và khởi chạy quy trình thiết lập:
+```bash
 npm install
 ```
-Chờ khoảng 1–2 phút lần đầu.
 
-### Bước 3 — Chạy ứng dụng
-```
+### 2. Khởi chạy Ứng dụng
+Kích hoạt môi trường thực thi Electron:
+```bash
 npm start
 ```
 
-✅ Cửa sổ **DevLaunch** sẽ mở ra!
-
 ---
 
-## Đóng gói thành file .exe (tuỳ chọn)
+## 📦 Đóng gói & Phân phối (Production)
 
-Nếu muốn có file `.exe` cài đặt hoặc portable:
-```
+Để tạo bản cài đặt chuyên nghiệp (`.exe`) cho Windows, hãy sử dụng quy trình xây dựng tối ưu hóa:
+
+```bash
+# Tạo bản Installer & Portable
 npm run build
 ```
-File sẽ được tạo trong thư mục `dist\`.
+Sản phẩm cuối cùng sẽ được xuất ra thư mục `dist/` với đầy đủ logo và cấu hình hệ thống.
 
 ---
 
-## Hướng dẫn sử dụng
+## 📖 Hướng Dẫn Vận Hành Hệ Thống
 
-### Thêm service mới
-1. Nhấn nút **＋ Thêm service** (góc trên phải)
-2. Điền thông tin:
-   - **Tên service**: Tên dễ nhớ, ví dụ "Frontend App"
-   - **Dự án**: Nhóm các service lại, ví dụ "Shop Online"
-   - **Lệnh khởi động**: `npm run dev`, `python manage.py runserver`, v.v.
-   - **Thư mục dự án**: Nhấn 📁 để chọn thư mục hoặc gõ đường dẫn
-   - **URL**: Có thể để trống — app sẽ tự nhận diện từ log (`localhost:3000`, v.v.)
-3. Nhấn **💾 Lưu**
+### Khởi tạo Service
+Hệ thống hỗ trợ cả **Quick Add** (Thêm nhanh tại tiêu đề) và **Full Configuration** (Cấu hình chi tiết qua Modal):
+- **Command Line:** Hỗ trợ mọi loại shell command (npm, yarn, python, go, docker, v.v.).
+- **Directory:** Tự động chuẩn hóa đường dẫn Windows, hỗ trợ ký tự `~`.
+- **Dynamic Port:** Tự động giải phóng cổng kết nối nếu phát hiện tiến trình bị treo.
 
-### Chạy / Dừng service
-- Nhấn ▶ để **chạy**
-- Nhấn ⏹ để **dừng**  
-- Nhấn 🔄 để **khởi động lại**
-- Nhấn 🔗 URL để **mở trình duyệt**
-- Nhấn 📄 để **xem log** realtime
-
-### Gom nhóm dự án
-- Các service cùng tên "Dự án" sẽ được gom vào 1 nhóm
-- Nhấn đầu nhóm để thu gọn / mở rộng
-- Có thể chạy/dừng **tất cả** service trong nhóm cùng lúc (▶ / ⏹ ở header nhóm)
-
-### Lọc & Tìm kiếm
-- Sidebar trái: lọc **Tất cả / Đang chạy / Đã dừng**
-- Hoặc click tên dự án để xem riêng từng dự án
-
-### Backup & Khôi phục
-- Nhấn **📤 Backup** → lưu file `.json` về máy
-- Nhấn **📥 Import** → mở file backup để khôi phục
-- Dùng khi chuyển máy hoặc cài lại Windows
+### Quản trị Dự án
+- **Project Groups:** Tự động gom nhóm dựa trên tên dự án.
+- **Batch Actions:** Điều khiển hàng loạt (Start/Stop All) chỉ với một thao tác.
+- **Visual Feedback:** Hệ thống màu sắc giúp phân biệt trạng thái (Starting, Running, Error, Stopped).
 
 ---
 
-## Câu hỏi thường gặp
+## 🛡 Bảo mật & Dữ liệu
 
-**Q: Lệnh chạy không được, báo lỗi "không tìm thấy lệnh"?**  
-A: Đảm bảo Node.js / Python / công cụ tương ứng đã được cài và thêm vào PATH. Thử chạy lệnh đó trong Command Prompt trước.
+Dữ liệu cấu hình được lưu trữ cục bộ một cách an toàn tại:
+`%AppData%/Roaming/devlaunch/services.json`
 
-**Q: URL không tự nhận diện được?**  
-A: Nhập thủ công vào trường URL khi thêm/sửa service.
+Chúng tôi cam kết bảo mật tuyệt đối: **Không** gửi dữ liệu ra ngoài, **Không** thu thập thông tin người dùng. Mọi thứ đều nằm trong quyền kiểm soát của bạn.
 
-**Q: Dữ liệu lưu ở đâu?**  
-A: `C:\Users\<tên_user>\AppData\Roaming\devlaunch\services.json`
+---
 
-**Q: Muốn chỉnh sửa service?**  
-A: Nhấn ✏️ ở service đó, sửa xong nhấn Lưu.
+## 🤝 Đóng góp & Phát triển
+
+Dự án này được tối ưu hóa cho hiệu suất cao. Nếu bạn phát hiện lỗi hoặc muốn bổ sung tính năng:
+1. Fork dự án.
+2. Tạo Brand mới (`git checkout -b feature/AmazingFeature`).
+3. Commit thay đổi (`git commit -m 'Add some AmazingFeature'`).
+4. Push lên Branch và mở một Pull Request.
+
+---
+
+<div align="center">
+  <p>Được kiến tạo với tâm huyết bởi <strong>Antigravity Team</strong></p>
+  <p><i>"Nâng tầm hiệu suất khởi đầu cho mọi dự án đỉnh cao."</i></p>
+</div>
