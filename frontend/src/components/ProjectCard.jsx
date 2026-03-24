@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import clsx from 'clsx';
 import {
   Play, Square, RotateCcw, Terminal, Cpu, MemoryStick,
   Clock, ExternalLink, Folder, CheckSquare, Square as SquareIcon,
-  ChevronDown, ChevronUp, Globe,
+  ChevronDown, ChevronUp, Globe, GripVertical, Pencil, Check, X,
 } from 'lucide-react';
 import { StatusDot, StatusBadge, Button, Tooltip } from './ui';
 import useAppStore from '../store/appStore';
@@ -25,6 +25,131 @@ function formatUptime(ms) {
   if (h < 24) return `${h}h ${m % 60}m`;
   const d = Math.floor(h / 24);
   return `${d}d ${h % 24}h`;
+}
+
+// ─── Logo Editor Popup ────────────────────────────────────────────────────────
+// Quick emoji/text picker shown inline when clicking the logo
+const PRESET_EMOJIS = [
+  '🚀','⚡','🌊','🧩','🎯','🦄','🔥','💎',
+  '🌟','🛸','🧠','🎮','🦋','🌈','🗝️','⚙️',
+  '🐉','🌴','🎪','🦊','🐳','🦅','🎸','🏆',
+];
+
+function LogoEditor({ currentLogo, projectColor, onSave, onClose }) {
+  const [value, setValue] = useState(currentLogo || '');
+  const inputRef = useRef(null);
+
+  return (
+    <div
+      className="absolute left-0 top-full mt-2 z-50 p-3 rounded-xl border shadow-2xl"
+      style={{
+        background: '#1a1d26',
+        borderColor: `${projectColor}44`,
+        boxShadow: `0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px ${projectColor}22`,
+        width: 280,
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="text-[10px] text-text-muted uppercase tracking-wider mb-2 font-semibold">
+        Project Logo (emoji or 1–2 chars)
+      </div>
+
+      {/* Input */}
+      <div className="flex gap-2 mb-3">
+        <input
+          ref={inputRef}
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value.slice(0, 4))}
+          placeholder="e.g. 🚀 or RB"
+          className="flex-1 h-8 px-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 font-mono"
+        />
+        <button
+          onClick={() => { onSave(value.trim()); onClose(); }}
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-status-online hover:bg-status-online/10 transition-all border border-status-online/30"
+        >
+          <Check size={14} />
+        </button>
+        <button
+          onClick={onClose}
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-all"
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      {/* Preset emojis */}
+      <div className="grid grid-cols-8 gap-1">
+        {PRESET_EMOJIS.map((emoji) => (
+          <button
+            key={emoji}
+            onClick={() => { onSave(emoji); onClose(); }}
+            className={clsx(
+              'w-8 h-8 flex items-center justify-center rounded-lg text-base transition-all hover:scale-110',
+              'hover:bg-bg-tertiary border border-transparent hover:border-border',
+              value === emoji && 'bg-bg-tertiary border-border'
+            )}
+            title={emoji}
+          >
+            {emoji}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Project Logo Display ─────────────────────────────────────────────────────
+function ProjectLogo({ project, projectColor, onlineCount }) {
+  const [editing, setEditing] = useState(false);
+  const { updateProjectLogo } = useAppStore();
+  const logo = project.logo;
+  const initials = (project.displayName || project.name).substring(0, 2).toUpperCase();
+
+  return (
+    <div className="relative flex-shrink-0">
+      <button
+        onClick={() => setEditing((v) => !v)}
+        className={clsx(
+          'group relative w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold transition-all duration-200',
+          'hover:scale-105 cursor-pointer'
+        )}
+        style={{
+          background: logo ? 'transparent' : `${projectColor}18`,
+          border: `2px solid ${projectColor}${onlineCount > 0 ? 'aa' : '44'}`,
+          boxShadow: onlineCount > 0 ? `0 0 12px ${projectColor}44` : 'none',
+          lineHeight: 1,
+        }}
+        title="Click to change logo"
+      >
+        {logo ? (
+          <span className="leading-none select-none" style={{ fontSize: logo.length > 2 ? '0.65rem' : '1.1rem' }}>
+            {logo}
+          </span>
+        ) : (
+          <span
+            className="text-xs font-bold tracking-tight select-none"
+            style={{ color: projectColor }}
+          >
+            {initials}
+          </span>
+        )}
+        {/* Overlay pencil */}
+        <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Pencil size={12} className="text-white" />
+        </span>
+      </button>
+
+      {editing && (
+        <LogoEditor
+          currentLogo={logo}
+          projectColor={projectColor}
+          onSave={(newLogo) => updateProjectLogo(project.name, newLogo)}
+          onClose={() => setEditing(false)}
+        />
+      )}
+    </div>
+  );
 }
 
 // ─── Single Process Row ───────────────────────────────────────────────────────
@@ -220,7 +345,7 @@ function ProcessItem({ procConfig, projectColor }) {
 }
 
 // ─── Project Card ─────────────────────────────────────────────────────────────
-export default function ProjectCard({ project }) {
+export default function ProjectCard({ project, isDragging, onDragStart, onDragEnd, canReorder }) {
   const [collapsed, setCollapsed] = useState(false);
   const [isActing, setIsActing] = useState(null); // 'start' | 'stop' | 'restart'
 
@@ -246,29 +371,47 @@ export default function ProjectCard({ project }) {
 
   return (
     <div
-      className="card-base overflow-hidden transition-all duration-200 hover:shadow-card-hover animate-fade-in"
+      className={clsx(
+        'card-base overflow-hidden transition-all duration-200 hover:shadow-card-hover animate-fade-in',
+        isDragging && 'ring-2 ring-accent/40',
+      )}
       style={{
         boxShadow: onlineCount > 0 ? `0 0 0 1px ${projectColor}22, 0 4px 24px rgba(0,0,0,0.4)` : undefined,
       }}
+      draggable={false}
     >
       {/* Card Header */}
       <div
-        className="flex items-center justify-between px-5 py-4 border-b border-border"
+        className="flex items-center justify-between px-4 py-4 border-b border-border"
         style={{
           background: `linear-gradient(135deg, ${projectColor}08, transparent)`,
         }}
       >
-        <div className="flex items-center gap-3">
-          {/* Color indicator */}
-          <div
-            className="w-3 h-3 rounded-full flex-shrink-0"
-            style={{
-              background: projectColor,
-              boxShadow: onlineCount > 0 ? `0 0 8px ${projectColor}88` : 'none',
-            }}
-          />
-          <div>
-            <h3 className="text-base font-bold text-text-primary">
+        <div className="flex items-center gap-3 min-w-0">
+          {/* Drag Handle */}
+          {canReorder && (
+            <div
+              draggable="true"
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              className={clsx(
+                'flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-lg cursor-grab active:cursor-grabbing',
+                'text-text-muted hover:text-text-secondary hover:bg-bg-tertiary transition-all',
+                'opacity-0 group-hover:opacity-100',
+              )}
+              title="Drag to reorder"
+              style={{ opacity: undefined }} // override inline so group-hover works
+            >
+              <GripVertical size={14} />
+            </div>
+          )}
+
+          {/* Logo */}
+          <ProjectLogo project={project} projectColor={projectColor} onlineCount={onlineCount} />
+
+          {/* Name + stats */}
+          <div className="min-w-0">
+            <h3 className="text-base font-bold text-text-primary leading-tight">
               {project.displayName || project.name}
             </h3>
             <div className="flex items-center gap-2 mt-0.5">
@@ -289,7 +432,7 @@ export default function ProjectCard({ project }) {
         </div>
 
         {/* Header Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {/* Bulk controls */}
           <div className="flex items-center gap-1 mr-2">
             {!allOnline && (

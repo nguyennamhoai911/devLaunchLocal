@@ -1,6 +1,7 @@
 import React from 'react';
-import { Minus, Square, X, Cpu, Activity } from 'lucide-react';
+import { Minus, Square, X } from 'lucide-react';
 import useAppStore from '../store/appStore';
+import logo from '../assets/logo.svg';
 
 const isElectron = typeof window !== 'undefined' && window.electron;
 
@@ -21,13 +22,7 @@ export default function TitleBar() {
             {/* Left: App info */}
             <div className="flex items-center gap-3 no-drag">
                 <div className="flex items-center gap-2">
-                    <div
-                        className="w-6 h-6 rounded-md flex items-center justify-center"
-                        style={{ background: 'linear-gradient(135deg, #00ff9c, #00a86b)' }}
-                    >
-                        <Activity size={14} className="text-bg-primary" />
-                    </div>
-                    <span className="text-sm font-semibold text-text-primary">Dev Manager</span>
+                    <img src={logo} alt="DevLaunch" className="h-6 w-auto" />
                 </div>
                 <div className="h-4 border-l border-border" />
                 <div className="flex items-center gap-1.5 text-[11px] text-text-secondary">
@@ -47,7 +42,7 @@ export default function TitleBar() {
 
             {/* Center: App title */}
             <div className="absolute left-1/2 -translate-x-1/2 text-xs text-text-muted pointer-events-none">
-                PM2 Project Manager
+                DevLaunch
             </div>
 
             {/* Right: Window controls */}

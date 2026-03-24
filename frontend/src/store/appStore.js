@@ -37,6 +37,40 @@ const useAppStore = create((set, get) => ({
     }
   },
 
+  reorderProjects: async (orderedNames) => {
+    // Optimistic update
+    const current = get().projects;
+    const map = {};
+    current.forEach((p) => { map[p.name] = p; });
+    const reordered = orderedNames
+      .filter((n) => map[n])
+      .map((n) => map[n]);
+    current.forEach((p) => { if (!orderedNames.includes(p.name)) reordered.push(p); });
+    set({ projects: reordered });
+    if (isElectron) {
+      try {
+        await window.electron.reorderProjects(orderedNames);
+      } catch (err) {
+        console.error('Failed to reorder projects:', err);
+      }
+    }
+  },
+
+  updateProjectLogo: async (name, logo) => {
+    // Optimistic update
+    const projects = get().projects.map((p) =>
+      p.name === name ? { ...p, logo } : p
+    );
+    set({ projects });
+    if (isElectron) {
+      try {
+        await window.electron.updateProjectLogo(name, logo);
+      } catch (err) {
+        console.error('Failed to update project logo:', err);
+      }
+    }
+  },
+
   // ─── Load PM2 Processes ────────────────────────────────────────────────────
   loadProcesses: async () => {
     set({ isRefreshing: true });

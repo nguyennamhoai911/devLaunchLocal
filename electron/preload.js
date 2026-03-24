@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('electron', {
   addProject: (project) => ipcRenderer.invoke('projects:add', project),
   updateProject: (name, updates) => ipcRenderer.invoke('projects:update', name, updates),
   deleteProject: (name) => ipcRenderer.invoke('projects:delete', name),
+  reorderProjects: (orderedNames) => ipcRenderer.invoke('projects:reorder', orderedNames),
+  updateProjectLogo: (name, logo) => ipcRenderer.invoke('projects:updateLogo', name, logo),
 
   // Logs streaming
   onLogData: (callback) => {

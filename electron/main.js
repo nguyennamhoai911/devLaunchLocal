@@ -131,6 +131,14 @@ ipcMain.handle('projects:delete', (_, name) => {
   return projectService.deleteProject(name);
 });
 
+ipcMain.handle('projects:reorder', (_, orderedNames) => {
+  return projectService.reorderProjects(orderedNames);
+});
+
+ipcMain.handle('projects:updateLogo', (_, name, logo) => {
+  return projectService.updateProjectLogo(name, logo);
+});
+
 // Logs streaming via pm2 logs command
 ipcMain.handle('log:start', (_, name) => {
   if (logStreams[name]) {

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -186,25 +186,42 @@ function stopProcess(id, service = null) {
 
 // ── Window ────────────────────────────────────────────────────────────────────
 let mainWindow;
+let tray = null;
 
 function createWindow() {
+  const iconPath = path.join(__dirname, 'assets', 'icon.png');
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 960,
     minHeight: 600,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#202025',
     titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#1e293b',
-      symbolColor: '#cbd5e1',
+      color: '#28272e',
+      symbolColor: '#78787B',
       height: 44
     },
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false
     }
+  });
+
+  // ── Tray ────────────────────────────────────────────────────────────────────
+  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+  tray = new Tray(trayIcon);
+  tray.setToolTip('DevLaunch');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Show DevLaunch', click: () => { mainWindow?.show(); mainWindow?.focus(); } },
+    { type: 'separator' },
+    { label: 'Quit', click: () => app.quit() }
+  ]));
+  tray.on('click', () => {
+    if (mainWindow?.isVisible()) { mainWindow.focus(); } else { mainWindow?.show(); }
   });
 
   mainWindow.loadFile('index.html');

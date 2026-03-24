@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef, useCallback } from 'react';
 import {
   Activity, Cpu, HardDrive, Zap, RefreshCw,
   CheckCircle, XCircle, RotateCcw, Play, Square,
@@ -43,7 +43,7 @@ export default function Dashboard() {
   const {
     projects, pm2Processes, isRefreshing, loadProcesses,
     selectedProcesses, restartSelected, stopSelected, clearSelection,
-    searchQuery, setSearchQuery,
+    searchQuery, setSearchQuery, reorderProjects,
   } = useAppStore();
 
   const stats = useMemo(() => {
@@ -69,6 +69,72 @@ export default function Dashboard() {
         )
     );
   }, [projects, searchQuery]);
+
+  // ─── Drag-and-drop state ───────────────────────────────────────────────────
+  const [dragIndex, setDragIndex]       = useState(null); // index trong filteredProjects
+  const [dropIndex, setDropIndex]       = useState(null); // vị trí drop indicator (0..n)
+  const [isDragging, setIsDragging]     = useState(false);
+  const dragNodeIndex                   = useRef(null);
+
+  const handleDragStart = useCallback((e, idx) => {
+    dragNodeIndex.current = idx;
+    setDragIndex(idx);
+    setIsDragging(true);
+    e.dataTransfer.effectAllowed = 'move';
+    // Ghost image nhỏ hơn, dùng element của chính nó
+    e.dataTransfer.setDragImage(e.currentTarget.closest('[data-project-card]'), 20, 20);
+  }, []);
+
+  const handleDragOver = useCallback((e, idx) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    // Xác định vị trí indicator: trên hoặc dưới card
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const indicator = e.clientY < midY ? idx : idx + 1;
+    setDropIndex(indicator);
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    // Chỉ clear nếu rời khỏi list hoàn toàn
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDropIndex(null);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    const from = dragNodeIndex.current;
+    if (from === null || dropIndex === null) return;
+
+    // Chỉ áp dụng trên filteredProjects (khi search đang rỗng hoặc toàn bộ)
+    const arr = [...filteredProjects];
+    const item = arr[from];
+    arr.splice(from, 1);
+
+    const insertAt = dropIndex > from ? dropIndex - 1 : dropIndex;
+    arr.splice(insertAt, 0, item);
+
+    // Tái tạo toàn bộ danh sách theo thứ tự mới (cho cả projects không được filter)
+    if (!searchQuery.trim()) {
+      reorderProjects(arr.map((p) => p.name));
+    }
+
+    setDragIndex(null);
+    setDropIndex(null);
+    setIsDragging(false);
+    dragNodeIndex.current = null;
+  }, [filteredProjects, dropIndex, reorderProjects, searchQuery]);
+
+  const handleDragEnd = useCallback(() => {
+    setDragIndex(null);
+    setDropIndex(null);
+    setIsDragging(false);
+    dragNodeIndex.current = null;
+  }, []);
+
+  const isSearching = searchQuery.trim().length > 0;
 
   return (
     <div className="flex flex-col h-full overflow-auto">
@@ -201,12 +267,91 @@ export default function Dashboard() {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredProjects.map((project) => (
-              <ProjectCard key={project.name} project={project} />
+          <div
+            className="space-y-0 select-none"
+            onDragLeave={handleDragLeave}
+          >
+            {filteredProjects.map((project, idx) => (
+              <div
+                key={project.name}
+                data-project-card="true"
+                className="relative"
+                onDragOver={(e) => handleDragOver(e, idx)}
+                onDrop={handleDrop}
+              >
+                {/* Drop indicator BEFORE this card */}
+                <DropIndicator visible={isDragging && dropIndex === idx} />
+
+                <div
+                  className={clsx(
+                    'mb-4 transition-all duration-150',
+                    dragIndex === idx && 'opacity-40 scale-[0.98]',
+                  )}
+                >
+                  <ProjectCard
+                    project={project}
+                    isDragging={dragIndex === idx}
+                    onDragStart={(e) => handleDragStart(e, idx)}
+                    onDragEnd={handleDragEnd}
+                    canReorder={!isSearching}
+                  />
+                </div>
+              </div>
             ))}
+
+            {/* Drop indicator AFTER last card */}
+            <div
+              data-project-card="true"
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDropIndex(filteredProjects.length);
+              }}
+              onDrop={handleDrop}
+              className="h-2"
+            >
+              <DropIndicator visible={isDragging && dropIndex === filteredProjects.length} />
+            </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function DropIndicator({ visible }) {
+  return (
+    <div
+      className={clsx(
+        'transition-all duration-150 overflow-hidden',
+        visible ? 'h-8 opacity-100' : 'h-0 opacity-0 pointer-events-none'
+      )}
+    >
+      <div className="flex items-center gap-3 px-2 h-full">
+        <div
+          className="flex-1 h-0.5 rounded-full"
+          style={{
+            background: 'linear-gradient(90deg, transparent, #00ff9c, transparent)',
+            boxShadow: '0 0 8px rgba(0,255,156,0.6)',
+          }}
+        />
+        <div
+          className="text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0"
+          style={{
+            color: '#00ff9c',
+            background: 'rgba(0,255,156,0.1)',
+            border: '1px solid rgba(0,255,156,0.3)',
+            boxShadow: '0 0 6px rgba(0,255,156,0.2)',
+          }}
+        >
+          Drop here
+        </div>
+        <div
+          className="flex-1 h-0.5 rounded-full"
+          style={{
+            background: 'linear-gradient(90deg, transparent, #00ff9c, transparent)',
+            boxShadow: '0 0 8px rgba(0,255,156,0.6)',
+          }}
+        />
       </div>
     </div>
   );

@@ -63,6 +63,29 @@ function deleteProject(name) {
   return saveConfig(config);
 }
 
+function reorderProjects(orderedNames) {
+  const config = loadConfig();
+  const projectMap = {};
+  config.projects.forEach((p) => { projectMap[p.name] = p; });
+  const reordered = orderedNames
+    .filter((name) => projectMap[name])
+    .map((name) => projectMap[name]);
+  // Append any projects not in orderedNames (safety)
+  config.projects.forEach((p) => {
+    if (!orderedNames.includes(p.name)) reordered.push(p);
+  });
+  config.projects = reordered;
+  return saveConfig(config);
+}
+
+function updateProjectLogo(name, logo) {
+  const config = loadConfig();
+  const idx = config.projects.findIndex((p) => p.name === name);
+  if (idx === -1) return false;
+  config.projects[idx].logo = logo;
+  return saveConfig(config);
+}
+
 module.exports = {
   loadConfig,
   saveConfig,
@@ -73,4 +96,6 @@ module.exports = {
   addProject,
   updateProject,
   deleteProject,
+  reorderProjects,
+  updateProjectLogo,
 };

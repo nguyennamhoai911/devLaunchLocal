@@ -12,14 +12,15 @@
     body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
 
     /* ── Scrollbars ── */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
-    .dark-scroll::-webkit-scrollbar-thumb { background: #374151; }
+    ::-webkit-scrollbar-thumb { background: #2a2d35; border-radius: 99px; }
+    .dark-scroll::-webkit-scrollbar-thumb { background: #2a2d35; }
+    .dark-scroll::-webkit-scrollbar-thumb:hover { background: #ccff0055; }
 
     /* ── Status indicator ── */
     @keyframes pulse-dot { 0%,100%{box-shadow:0 0 0 0 currentColor;} 50%{box-shadow:0 0 0 5px transparent;} }
-    .dot-running { animation: pulse-dot 2s infinite; color: rgba(34,197,94,0.5); }
+    .dot-running { animation: pulse-dot 2s infinite; color: rgba(204,255,0,0.4); }
 
     /* ── Slide-in animations ── */
     @keyframes slideIn  { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
@@ -36,12 +37,12 @@
     .toast-hide { animation: toastOut .2s ease forwards; }
 
     /* ── Nav active ── */
-    .nav-active { background: #1e293b; color: #fff; }
-    .nav-active svg { color: #818cf8 !important; }
+    .nav-active { background: #3A3840; color: #DDDFDE; border: 1px solid #484955; border-radius: 10px; }
+    .nav-active svg { color: #DDDFDE !important; }
 
     /* ── Selection ── */
     .selectable { user-select: text !important; -webkit-user-select: text !important; }
-    .dragging { opacity: 0.5; transform: scale(0.98); }
+    .dragging { opacity: 0.4; transform: scale(0.98); }
     .drag-over { border-top: 2px solid transparent !important; position: relative; }
     .drag-over::before {
       content: '';
@@ -49,26 +50,28 @@
       top: -1.5px;
       left: 0;
       right: 0;
-      height: 3px;
-      background: #6366f1;
+      height: 2px;
+      background: #78787B;
       border-radius: 99px;
-      box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+      box-shadow: 0 0 10px rgba(120,120,123,0.4);
       z-index: 10;
     }
-    /* Indicator dot at the start of the line */
     .drag-over::after {
       content: '';
       position: absolute;
       top: -4px;
       left: -2px;
-      width: 8px;
-      height: 8px;
-      background: #6366f1;
+      width: 7px;
+      height: 7px;
+      background: #78787B;
       border-radius: 50%;
       z-index: 11;
-      box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+      box-shadow: 0 0 8px rgba(120,120,123,0.5);
     }
     .no-anim .anim-in { animation: none !important; }
+
+    /* ── Lime glow ── */
+    .lime-glow { box-shadow: 0 0 16px rgba(204,255,0,0.25); }
   </style>
   <script>
     tailwind.config = {
@@ -80,52 +83,46 @@
     }
   </script>
 </head>
-<body class="h-screen flex overflow-hidden select-none bg-slate-50 text-slate-900">
+<body class="h-screen flex overflow-hidden select-none bg-[#202025] text-[#DDDFDE]">
 
 <!-- ══════════════════════════════════════════
      SIDEBAR (DARK)
 ══════════════════════════════════════════ -->
-<aside class="w-60 bg-[#0f172a] text-slate-300 flex flex-col shrink-0 border-r border-slate-800">
+<aside class="w-60 bg-[#202025] text-[#DDDFDE] flex flex-col shrink-0 border-r border-[#484955]/30">
 
   <!-- Logo -->
-  <div class="h-14 flex items-center gap-3 px-5 border-b border-slate-800">
-    <div class="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-md">
-      <i data-lucide="rocket" class="h-4 w-4 text-white"></i>
-    </div>
-    <div>
-      <div class="text-white font-bold text-sm leading-none">DevLaunch</div>
-      <div class="text-slate-500 text-[10px] mt-0.5 tracking-wider uppercase">Localhost Manager</div>
-    </div>
+  <div class="h-14 flex items-center px-5 border-b border-[#484955]/30">
+    <img src="logo-devLaunch.svg?v=2" alt="DevLaunch" class="h-8 w-auto">
   </div>
 
   <!-- Nav -->
-  <nav class="flex-1 overflow-y-auto dark-scroll px-3 py-4 space-y-0.5">
-    <div class="text-[10px] uppercase tracking-widest font-semibold text-slate-600 px-2 pb-2">General</div>
-    <button id="navAll"     onclick="setView('all')"     class="nav-btn group flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-slate-800 hover:text-white">
-      <i data-lucide="layout-grid" class="h-4 w-4 text-slate-500 group-hover:text-indigo-400 transition-colors"></i> All Services
-      <span id="cntAll" class="ml-auto text-[11px] font-mono text-slate-500">0</span>
+  <nav class="flex-1 overflow-y-auto dark-scroll px-3 py-4 space-y-0.5 text-sm">
+    <div class="text-[9px] uppercase tracking-widest font-bold text-[#484955] px-2 pb-2">General</div>
+    <button id="navAll"     onclick="setView('all')"     class="nav-btn group flex w-full items-center gap-2.5 px-3 py-2 rounded-lg font-medium transition-all hover:bg-[#3A3840] hover:text-[#DDDFDE] border border-transparent">
+      <i data-lucide="layout-grid" class="h-4 w-4 text-[#484955] group-hover:text-[#78787B] transition-colors"></i> All Services
+      <span id="cntAll" class="ml-auto text-[11px] font-mono text-[#484955]">0</span>
     </button>
-    <button id="navRunning" onclick="setView('running')" class="nav-btn group flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-slate-800 hover:text-white">
-      <i data-lucide="play-circle" class="h-4 w-4 text-slate-500 group-hover:text-emerald-400 transition-colors"></i> Running
-      <span id="cntRunning" class="ml-auto text-[11px] font-mono text-emerald-500">0</span>
+    <button id="navRunning" onclick="setView('running')" class="nav-btn group flex w-full items-center gap-2.5 px-3 py-2 rounded-lg font-medium transition-all hover:bg-[#3A3840] hover:text-[#DDDFDE] border border-transparent">
+      <i data-lucide="play-circle" class="h-4 w-4 text-[#484955] group-hover:text-green-400 transition-colors"></i> Running
+      <span id="cntRunning" class="ml-auto text-[11px] font-mono text-green-500">0</span>
     </button>
-    <button id="navStopped" onclick="setView('stopped')" class="nav-btn group flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-slate-800 hover:text-white">
-      <i data-lucide="stop-circle" class="h-4 w-4 text-slate-500 group-hover:text-rose-400 transition-colors"></i> Stopped
-      <span id="cntStopped" class="ml-auto text-[11px] font-mono text-slate-500">0</span>
+    <button id="navStopped" onclick="setView('stopped')" class="nav-btn group flex w-full items-center gap-2.5 px-3 py-2 rounded-lg font-medium transition-all hover:bg-[#3A3840] hover:text-[#DDDFDE] border border-transparent">
+      <i data-lucide="stop-circle" class="h-4 w-4 text-[#484955] group-hover:text-rose-400 transition-colors"></i> Stopped
+      <span id="cntStopped" class="ml-auto text-[11px] font-mono text-[#484955]">0</span>
     </button>
 
-    <div class="text-[10px] uppercase tracking-widest font-semibold text-slate-600 px-2 pt-5 pb-2 flex items-center justify-between">
+    <div class="text-[9px] uppercase tracking-widest font-bold text-[#484955] px-2 pt-5 pb-2 flex items-center justify-between">
       projects
     </div>
     <div id="projNav" class="space-y-0.5"></div>
   </nav>
 
   <!-- Sidebar Footer -->
-  <div class="border-t border-slate-800 p-3 flex gap-2">
-    <button onclick="doImport()" class="flex-1 py-1.5 text-xs rounded-md border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white transition-all flex items-center justify-center gap-1.5">
+  <div class="border-t border-[#484955]/30 p-3 flex gap-2">
+    <button onclick="doImport()" class="flex-1 py-1.5 text-xs rounded-md border border-[#484955]/50 text-[#78787B] hover:bg-[#3A3840] hover:text-[#DDDFDE] transition-all flex items-center justify-center gap-1.5">
       <i data-lucide="upload" class="h-3 w-3"></i> Import
     </button>
-    <button onclick="doExport()" class="flex-1 py-1.5 text-xs rounded-md border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white transition-all flex items-center justify-center gap-1.5">
+    <button onclick="doExport()" class="flex-1 py-1.5 text-xs rounded-md border border-[#484955]/50 text-[#78787B] hover:bg-[#3A3840] hover:text-[#DDDFDE] transition-all flex items-center justify-center gap-1.5">
       <i data-lucide="download" class="h-3 w-3"></i> Backup
     </button>
   </div>
@@ -136,45 +133,45 @@
 ══════════════════════════════════════════ -->
 <div class="flex-1 flex flex-col overflow-hidden">
 
-  <!-- Topbar + Quick Add (DARK, combined) -->
-  <header class="bg-[#1e293b] text-white shrink-0 border-b border-slate-700/80 z-10" style="-webkit-app-region: drag;">
+  <!-- Topbar + Quick Add (DARK) -->
+  <header class="bg-[#28272e] text-[#DDDFDE] shrink-0 border-b border-[#484955]/30 z-10" style="-webkit-app-region: drag;">
 
-    <!-- Row 1: Title + Stats (draggable, items are pointer-events-none) -->
+    <!-- Row 1: Title + Stats -->
     <div class="h-11 flex items-center gap-3 px-5 pr-40">
-      <span id="viewTitle" class="font-semibold text-sm text-white pointer-events-none">All Services</span>
-      <div class="h-3.5 w-px bg-slate-600 pointer-events-none"></div>
-      <span id="statRun"  class="text-[11px] font-medium text-emerald-400 bg-emerald-400/10 rounded-full px-2 py-0.5 leading-none pointer-events-none">0 running</span>
-      <span id="statStop" class="text-[11px] font-medium text-slate-400 bg-slate-700/60 rounded-full px-2 py-0.5 leading-none pointer-events-none">0 idle</span>
+      <span id="viewTitle" class="font-semibold text-sm text-[#DDDFDE] pointer-events-none">All Services</span>
+      <div class="h-3.5 w-px bg-[#484955]/60 pointer-events-none"></div>
+      <span id="statRun"  class="text-[11px] font-medium text-green-400 bg-green-400/10 rounded-full px-2 py-0.5 leading-none pointer-events-none">0 running</span>
+      <span id="statStop" class="text-[11px] font-medium text-[#78787B] bg-[#484955]/20 rounded-full px-2 py-0.5 leading-none pointer-events-none">0 idle</span>
     </div>
 
-    <!-- Row 2: Quick Add inputs (all no-drag since they need interaction) -->
-    <div class="h-10 flex items-center gap-2 px-5 border-t border-slate-700/50" style="-webkit-app-region: no-drag;">
-      <i data-lucide="zap" class="h-3.5 w-3.5 text-indigo-400 shrink-0"></i>
-      <input id="qName"    placeholder="Name"      class="flex-[1.2] bg-slate-700/50 text-slate-100 placeholder:text-slate-500 border border-transparent focus:border-indigo-500/60 rounded-md px-2.5 py-1 text-xs outline-none transition">
-      <input id="qProject" placeholder="Project"   list="projList" class="flex-1 bg-slate-700/50 text-slate-100 placeholder:text-slate-500 border border-transparent focus:border-indigo-500/60 rounded-md px-2.5 py-1 text-xs outline-none transition">
-      <input id="qCmd"     placeholder="Command"   list="cmdList" class="flex-[1.8] bg-slate-700/50 text-slate-100 placeholder:text-slate-500 border border-transparent focus:border-indigo-500/60 rounded-md px-2.5 py-1 text-xs font-mono outline-none transition">
-      <input id="qDir"     placeholder="Directory" class="flex-[1.8] bg-slate-700/50 text-slate-100 placeholder:text-slate-500 border border-transparent focus:border-indigo-500/60 rounded-md px-2.5 py-1 text-xs font-mono outline-none transition">
-      <button onclick="qPickDir()" class="h-7 w-7 rounded-md bg-slate-700/60 hover:bg-slate-600 border border-slate-600 flex items-center justify-center transition shrink-0" title="Browse folder">
-        <i data-lucide="folder-open" class="h-3.5 w-3.5 text-slate-400"></i>
+    <!-- Row 2: Quick Add inputs -->
+    <div class="h-10 flex items-center gap-2 px-5 border-t border-[#484955]/30" style="-webkit-app-region: no-drag;">
+      <i data-lucide="zap" class="h-3.5 w-3.5 text-[#78787B] shrink-0"></i>
+      <input id="qName"    placeholder="Name"      class="flex-[1.2] bg-[#3A3840] text-[#DDDFDE] placeholder:text-[#484955] border border-[#484955]/40 focus:border-[#484955] rounded-md px-2.5 py-1 text-xs outline-none transition">
+      <input id="qProject" placeholder="Project"   list="projList" class="flex-1 bg-[#3A3840] text-[#DDDFDE] placeholder:text-[#484955] border border-[#484955]/40 focus:border-[#484955] rounded-md px-2.5 py-1 text-xs outline-none transition">
+      <input id="qCmd"     placeholder="Command"   list="cmdList" class="flex-[1.8] bg-[#3A3840] text-[#DDDFDE] placeholder:text-[#484955] border border-[#484955]/40 focus:border-[#484955] rounded-md px-2.5 py-1 text-xs font-mono outline-none transition">
+      <input id="qDir"     placeholder="Directory" class="flex-[1.8] bg-[#3A3840] text-[#DDDFDE] placeholder:text-[#484955] border border-[#484955]/40 focus:border-[#484955] rounded-md px-2.5 py-1 text-xs font-mono outline-none transition">
+      <button onclick="qPickDir()" class="h-7 w-7 rounded-md bg-[#3A3840] hover:bg-[#484955] border border-[#484955]/50 flex items-center justify-center transition shrink-0" title="Browse folder">
+        <i data-lucide="folder-open" class="h-3.5 w-3.5 text-[#78787B]"></i>
       </button>
-      <button onclick="doQuickAdd()" class="h-7 px-3 rounded-md bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-semibold transition-all flex items-center gap-1 shrink-0">
+      <button onclick="doQuickAdd()" class="h-7 px-3 rounded-md bg-[#484955] hover:bg-[#78787B] active:scale-95 text-[#DDDFDE] text-xs font-semibold transition-all flex items-center gap-1 shrink-0">
         <i data-lucide="plus" class="h-3 w-3"></i> Add
       </button>
     </div>
   </header>
 
-  <!-- Content area (LIGHT) -->
-  <div id="contentWrap" class="flex-1 overflow-y-auto bg-slate-50 relative">
+  <!-- Content area -->
+  <div id="contentWrap" class="flex-1 overflow-y-auto bg-[#2a2930] dark-scroll relative">
 
     <!-- Empty state -->
     <div id="emptyState" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center p-10 anim-fade">
-      <div class="w-56 h-56 mb-6 relative">
-        <img src="assets/hero.png" alt="hero" class="w-full h-full object-contain drop-shadow-xl">
-        <div class="absolute inset-0 bg-indigo-400/20 blur-3xl -z-10 rounded-full"></div>
+      <div class="w-40 h-40 mb-6 relative">
+        <img src="logo-devLaunch.svg?v=2" alt="DevLaunch" class="w-full h-full object-contain opacity-20">
+        <div class="absolute inset-0 bg-[#CCFF00]/10 blur-3xl -z-10 rounded-full"></div>
       </div>
-      <h3 class="text-xl font-bold text-slate-800 mb-1">No Services Yet</h3>
-      <p class="text-slate-500 text-sm max-w-xs">Use the quick-add bar above or click <strong>Add Service</strong> to get started.</p>
-      <button onclick="openModal()" class="mt-6 px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold shadow-md shadow-indigo-200 transition-all hover:scale-105 active:scale-95">
+      <h3 class="text-lg font-bold text-[#DDDFDE] mb-1">No Services Yet</h3>
+      <p class="text-[#78787B] text-sm max-w-xs">Use the quick-add bar above or click <strong class="text-[#DDDFDE]">Add Service</strong> to get started.</p>
+      <button onclick="openModal()" class="mt-6 px-6 py-2 bg-[#3A3840] hover:bg-[#484955] text-[#DDDFDE] rounded-lg text-sm font-semibold border border-[#484955]/60 transition-all hover:scale-105 active:scale-95">
         Create First Service
       </button>
     </div>
@@ -184,122 +181,118 @@
   </div>
 
   <!-- Log Drawer (DARK TERMINAL) -->
-  <div id="logDrawer" style="display:none; height:240px" class="bg-[#0d1117] border-t border-slate-800 flex flex-col relative anim-in shrink-0">
+  <div id="logDrawer" style="display:none; height:240px" class="bg-[#202025] border-t border-[#484955]/30 flex flex-col relative anim-in shrink-0">
     <!-- Resizer -->
-    <div id="logResizer" class="absolute inset-x-0 top-0 h-1 cursor-ns-resize hover:bg-indigo-500/50 transition-colors z-20"></div>
+    <div id="logResizer" class="absolute inset-x-0 top-0 h-1 cursor-ns-resize hover:bg-[#484955]/40 transition-colors z-20"></div>
     <!-- Toolbar -->
-    <div class="h-9 bg-[#161b22] flex items-center px-4 gap-3 border-b border-slate-800 shrink-0">
-      <i data-lucide="terminal" class="h-3.5 w-3.5 text-indigo-400"></i>
-      <span class="text-[11px] font-semibold text-slate-300">Console <span class="text-indigo-400 font-mono" id="logSvcName"></span></span>
+    <div class="h-9 bg-[#28272e] flex items-center px-4 gap-3 border-b border-[#484955]/30 shrink-0">
+      <i data-lucide="terminal" class="h-3.5 w-3.5 text-[#78787B]"></i>
+      <span class="text-[11px] font-semibold text-[#78787B]">Console <span class="text-[#DDDFDE] font-mono" id="logSvcName"></span></span>
       <div class="ml-auto flex gap-2">
-        <button onclick="copyAllLogs()" class="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-0.5 rounded hover:bg-slate-800 transition flex items-center gap-1.5">
+        <button onclick="copyAllLogs()" class="text-[10px] text-[#78787B] hover:text-[#DDDFDE] px-2 py-0.5 rounded hover:bg-[#3A3840] transition flex items-center gap-1.5">
           <i data-lucide="copy" class="h-3 w-3"></i> Copy All
         </button>
-        <button onclick="clearLogs()" class="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-0.5 rounded hover:bg-slate-800 transition">Clear</button>
-        <button onclick="closeLog()" class="h-5 w-5 rounded hover:bg-rose-900/40 hover:text-rose-400 text-slate-500 flex items-center justify-center transition">
+        <button onclick="clearLogs()" class="text-[10px] text-[#78787B] hover:text-[#DDDFDE] px-2 py-0.5 rounded hover:bg-[#3A3840] transition">Clear</button>
+        <button onclick="closeLog()" class="h-5 w-5 rounded hover:bg-rose-900/40 hover:text-rose-400 text-[#484955] flex items-center justify-center transition">
           <i data-lucide="x" class="h-3 w-3"></i>
         </button>
       </div>
     </div>
     <!-- Log output -->
-    <div id="logBody" class="flex-1 overflow-y-auto dark-scroll p-4 font-mono text-[11.5px] leading-relaxed text-slate-400 space-y-0.5 selectable"></div>
+    <div id="logBody" class="flex-1 overflow-y-auto dark-scroll p-4 font-mono text-[11.5px] leading-relaxed text-[#78787B] space-y-0.5 selectable"></div>
     <!-- Terminal input -->
-    <div class="shrink-0 flex items-center gap-2 px-4 py-2 border-t border-slate-800 bg-[#0d1117] focus-within:bg-[#161b22] transition-colors">
-      <span class="text-emerald-400 font-bold font-mono">❯</span>
-      <input id="termInput" type="text" spellcheck="false" autocomplete="off" placeholder="Enter command..." class="flex-1 bg-transparent border-none outline-none text-slate-200 font-mono placeholder:text-slate-700 text-[12px]">
-      <kbd class="text-[9px] text-slate-700 font-mono border border-slate-800 rounded px-1.5 py-0.5 hidden sm:block">Enter ↵</kbd>
+    <div class="shrink-0 flex items-center gap-2 px-4 py-2 border-t border-[#484955]/30 bg-[#202025] focus-within:bg-[#28272e] transition-colors">
+      <span class="text-green-500 font-bold font-mono">❯</span>
+      <input id="termInput" type="text" spellcheck="false" autocomplete="off" placeholder="Enter command..." class="flex-1 bg-transparent border-none outline-none text-[#DDDFDE] font-mono placeholder:text-[#484955] text-[12px]">
+      <kbd class="text-[9px] text-[#484955] font-mono border border-[#484955]/40 rounded px-1.5 py-0.5 hidden sm:block">Enter ↵</kbd>
     </div>
   </div>
 
 </div><!-- /main -->
 
 
-<!-- ══════════════════════════════════════════
-     MODAL (LIGHT)
-══════════════════════════════════════════ -->
-<div id="modalBackdrop" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center anim-fade">
-  <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden anim-scale">
-    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-      <h2 id="modalTitle" class="font-bold text-slate-800 text-base">New Service</h2>
-      <button onclick="closeModal()" class="h-8 w-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 transition">
+<!-- Modal (DARK) -->
+<div id="modalBackdrop" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center anim-fade">
+  <div class="bg-[#3A3840] border border-[#484955] w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden anim-scale">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-[#484955]/60">
+      <h2 id="modalTitle" class="font-bold text-[#DDDFDE] text-base">New Service</h2>
+      <button onclick="closeModal()" class="h-8 w-8 rounded-lg hover:bg-[#484955] flex items-center justify-center text-[#78787B] hover:text-[#DDDFDE] transition">
         <i data-lucide="x" class="h-4 w-4"></i>
       </button>
     </div>
     <div class="p-6 space-y-4">
       <div class="grid grid-cols-2 gap-4">
         <div class="space-y-1">
-          <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Service Name *</label>
-          <input id="fName" type="text" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 transition">
+          <label class="text-[11px] font-semibold text-[#78787B] uppercase tracking-wider">Service Name *</label>
+          <input id="fName" type="text" class="w-full bg-[#202025] border border-[#484955]/60 rounded-lg px-3 py-2 text-sm text-[#DDDFDE] outline-none focus:ring-1 focus:ring-[#484955] focus:border-[#78787B] transition">
         </div>
         <div class="space-y-1">
-          <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Project *</label>
-          <input id="fProject" type="text" list="projList" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 transition">
+          <label class="text-[11px] font-semibold text-[#78787B] uppercase tracking-wider">Project *</label>
+          <input id="fProject" type="text" list="projList" class="w-full bg-[#202025] border border-[#484955]/60 rounded-lg px-3 py-2 text-sm text-[#DDDFDE] outline-none focus:ring-1 focus:ring-[#484955] focus:border-[#78787B] transition">
         </div>
       </div>
       <div class="space-y-1">
-        <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Command *</label>
-        <input id="fCmd" type="text" list="cmdList" onfocus="this.value=''" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 transition" placeholder="npm run dev">
+        <label class="text-[11px] font-semibold text-[#78787B] uppercase tracking-wider">Command *</label>
+        <input id="fCmd" type="text" list="cmdList" onfocus="this.value=''" class="w-full bg-[#202025] border border-[#484955]/60 rounded-lg px-3 py-2 text-sm font-mono text-[#DDDFDE] outline-none focus:ring-1 focus:ring-[#484955] focus:border-[#78787B] transition" placeholder="npm run dev">
       </div>
       <div class="space-y-1">
-        <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Execution Directory</label>
+        <label class="text-[11px] font-semibold text-[#78787B] uppercase tracking-wider">Directory</label>
         <div class="flex gap-2">
-          <input id="fDir" type="text" class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 transition" placeholder="C:\projects\my-app\backend">
-          <button onclick="pickDir()" class="px-4 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">Browse</button>
+          <input id="fDir" type="text" class="flex-1 bg-[#202025] border border-[#484955]/60 rounded-lg px-3 py-2 text-sm font-mono text-[#DDDFDE] outline-none focus:ring-1 focus:ring-[#484955] focus:border-[#78787B] transition" placeholder="C:\projects\my-app">
+          <button onclick="pickDir()" class="px-4 border border-[#484955]/60 rounded-lg text-xs font-semibold text-[#78787B] hover:bg-[#484955] hover:text-[#DDDFDE] transition">Browse</button>
         </div>
       </div>
       <div class="grid grid-cols-2 gap-4">
         <div class="space-y-1">
-          <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Local URL</label>
-          <input id="fLocalUrl" type="text" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 transition" placeholder="http://localhost:3000">
+          <label class="text-[11px] font-semibold text-[#78787B] uppercase tracking-wider">Local URL</label>
+          <input id="fLocalUrl" type="text" class="w-full bg-[#202025] border border-[#484955]/60 rounded-lg px-3 py-2 text-sm font-mono text-[#DDDFDE] outline-none focus:ring-1 focus:ring-[#484955] focus:border-[#78787B] transition" placeholder="http://localhost:3000">
         </div>
         <div class="space-y-1">
-          <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Network URL</label>
-          <input id="fNetworkUrl" type="text" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 transition" placeholder="http://192.168.1.5:3000">
+          <label class="text-[11px] font-semibold text-[#78787B] uppercase tracking-wider">Network URL</label>
+          <input id="fNetworkUrl" type="text" class="w-full bg-[#202025] border border-[#484955]/60 rounded-lg px-3 py-2 text-sm font-mono text-[#DDDFDE] outline-none focus:ring-1 focus:ring-[#484955] focus:border-[#78787B] transition" placeholder="http://192.168.1.5:3000">
         </div>
       </div>
       <div class="space-y-2">
-        <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Color</label>
+        <label class="text-[11px] font-semibold text-[#78787B] uppercase tracking-wider">Color</label>
         <div id="colorRow" class="flex gap-2.5 pt-0.5"></div>
       </div>
     </div>
-    <div class="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50">
-      <button onclick="closeModal()" class="px-5 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-100 transition active:scale-95">Cancel</button>
-      <button onclick="saveService()" class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold shadow-sm shadow-indigo-200 transition active:scale-95">Save</button>
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-[#484955]/60 bg-[#202025]/30">
+      <button onclick="closeModal()" class="px-5 py-2 rounded-lg border border-[#484955]/60 text-sm text-[#78787B] hover:text-[#DDDFDE] hover:bg-[#484955]/40 transition active:scale-95">Cancel</button>
+      <button onclick="saveService()" class="px-5 py-2 rounded-lg bg-[#484955] hover:bg-[#78787B] text-[#DDDFDE] text-sm font-semibold transition active:scale-95">Save</button>
     </div>
   </div>
 </div>
 
-<!-- Project Modal -->
-<div id="projModal" class="hidden fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center anim-fade">
-  <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden anim-scale">
-    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-      <h2 class="font-bold text-slate-800 text-base">Project Settings</h2>
-      <button onclick="closeProjModal()" class="h-8 w-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 transition"><i data-lucide="x" class="h-4 w-4"></i></button>
+<!-- Project Modal (DARK) -->
+<div id="projModal" class="hidden fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center anim-fade">
+  <div class="bg-[#3A3840] border border-[#484955] w-full max-w-md rounded-2xl shadow-2xl overflow-hidden anim-scale">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-[#484955]/60">
+      <h2 class="font-bold text-[#DDDFDE] text-base">Project Settings</h2>
+      <button onclick="closeProjModal()" class="h-8 w-8 rounded-lg hover:bg-[#484955] flex items-center justify-center text-[#78787B] hover:text-[#DDDFDE] transition"><i data-lucide="x" class="h-4 w-4"></i></button>
     </div>
     <div class="p-6 space-y-4">
       <div class="space-y-1">
-        <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider pb-1 block">Project Name</label>
-        <div id="pNameDisplay" class="text-sm font-semibold text-slate-800 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100"></div>
+        <label class="text-[11px] font-semibold text-[#78787B] uppercase tracking-wider pb-1 block">Project Name</label>
+        <div id="pNameDisplay" class="text-sm font-semibold text-[#DDDFDE] bg-[#202025] px-3 py-2 rounded-lg border border-[#484955]/50"></div>
       </div>
       <div class="space-y-1">
-        <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider pb-1 block">Root Project Path (for Antigravity)</label>
+        <label class="text-[11px] font-semibold text-[#78787B] uppercase tracking-wider pb-1 block">Root Project Path</label>
         <div class="flex gap-2">
-          <input id="pPath" type="text" class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 transition" placeholder="C:\projects\my-project">
-          <button onclick="pickPPath()" class="px-4 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">Browse</button>
+          <input id="pPath" type="text" class="flex-1 bg-[#202025] border border-[#484955]/60 rounded-lg px-3 py-2 text-sm font-mono text-[#DDDFDE] outline-none focus:ring-1 focus:ring-[#484955] focus:border-[#78787B] transition" placeholder="C:\projects\my-project">
+          <button onclick="pickPPath()" class="px-4 border border-[#484955]/60 rounded-lg text-xs font-semibold text-[#78787B] hover:bg-[#484955] hover:text-[#DDDFDE] transition">Browse</button>
         </div>
-        <p class="text-[10px] text-slate-400 mt-1">This path is used for the "Open with Antigravity" feature across all services in this project.</p>
+        <p class="text-[10px] text-[#484955] mt-1">Used for the "Open with Antigravity" feature.</p>
       </div>
     </div>
-    <div class="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50">
-      <button onclick="closeProjModal()" class="px-5 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-100 transition">Cancel</button>
-      <button onclick="saveProject()" class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition">Save Settings</button>
-    </div>
-  </div>
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-[#484955]/60">
+      <button onclick="closeProjModal()" class="px-5 py-2 rounded-lg border border-[#484955]/60 text-sm text-[#78787B] hover:text-[#DDDFDE] hover:bg-[#484955]/40 transition">Cancel</button>
+      <button onclick="saveProject()" class="px-5 py-2 rounded-lg bg-[#484955] hover:bg-[#78787B] text-[#DDDFDE] text-sm font-semibold transition">Save Settings</button>
 </div>
 
 <!-- Toast -->
-<div id="toast" class="hidden fixed bottom-5 right-5 z-[100] flex items-center gap-2.5 bg-slate-900 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-xl border border-slate-700">
-  <div id="toastDot" class="h-2 w-2 rounded-full bg-indigo-400"></div>
+<div id="toast" class="hidden fixed bottom-5 right-5 z-[100] flex items-center gap-2.5 bg-[#3A3840] text-[#DDDFDE] text-xs font-medium px-4 py-3 rounded-xl shadow-xl border border-[#484955]">
+  <div id="toastDot" class="h-2 w-2 rounded-full bg-green-400"></div>
   <span id="toastMsg">–</span>
 </div>
 
@@ -322,8 +315,8 @@
 // ─────────────────────────────────────────
 // STATE
 // ─────────────────────────────────────────
-const COLORS = ['#6366f1','#ec4899','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ef4444','#14b8a6','#f97316'];
-let S = { services:[], projects:{}, view:'all', logOpenId:null, editId:null, editProj:null, color:COLORS[0] };
+const COLORS = ['#CCFF00','#4ade80','#38bdf8','#a78bfa','#fb923c','#f472b6','#fbbf24','#ef4444','#6ee7b7'];
+let S = { services:[], projects:{}, projectOrder:[], view:'all', logOpenId:null, editId:null, editProj:null, color:COLORS[0] };
 let isResizing = false;
 let cmdHistory = [], histIdx = -1;
 
@@ -336,6 +329,7 @@ async function init() {
     const d = await window.api.loadData();
     S.services = d.services || [];
     S.projects = d.projects || {};
+    S.projectOrder = d.projectOrder || [];
     const running = await window.api.getRunningIds();
     S.services.forEach(s => { if (!running.includes(s.id) && s.status==='running') s.status='stopped'; });
     window.api.onLogLine(({id, line}) => { if (S.logOpenId===id) appendLog(line); });
@@ -357,7 +351,7 @@ async function init() {
   render();
 }
 
-function persist() { if(window.api) window.api.saveData({services:S.services, projects:S.projects}); }
+function persist() { if(window.api) window.api.saveData({services:S.services, projects:S.projects, projectOrder:S.projectOrder}); }
 
 // ─────────────────────────────────────────
 // RENDER
@@ -382,15 +376,15 @@ function render(skipAnim = false) {
     const col = all.find(s=>s.project===p)?.color||'#6366f1';
     const cnt = all.filter(s=>s.project===p).length;
     const active = S.view===`proj:${p}`;
-    return `<div class="group flex w-full items-center gap-1.5 px-3 py-1 rounded-lg transition-all hover:bg-slate-800/80 ${active?'bg-slate-800 text-white':'text-slate-400'}">
-      <button onclick="setView('proj:${encodeURIComponent(p)}')" class="flex-1 flex items-center gap-2.5 py-1.5 overflow-hidden text-left">
-        <div class="h-2 w-2 rounded-full shrink-0" style="background:${col}"></div>
-        <span class="truncate text-[12px] ${active?'font-semibold':''}">${p}</span>
+    return `<div class="group flex w-full items-center gap-1.5 px-2 py-1 rounded-lg transition-all hover:bg-[#3A3840] ${active?'bg-[#3A3840] text-[#DDDFDE]':'text-[#78787B]'}">
+      <button onclick="setView('proj:${encodeURIComponent(p)}')" class="flex-1 flex items-center gap-2.5 py-1 overflow-hidden text-left">
+        <div class="h-1.5 w-1.5 rounded-full shrink-0" style="background:${col}"></div>
+        <span class="truncate text-[12px] ${active?'font-semibold text-[#DDDFDE]':''}"> ${p}</span>
       </button>
-      <button onclick="openProjModal('${p}')" class="h-6 w-6 rounded-md flex items-center justify-center hover:bg-slate-700 opacity-0 group-hover:opacity-100 transition-opacity text-slate-500">
+      <button onclick="openProjModal('${p}')" class="h-6 w-6 rounded-md flex items-center justify-center hover:bg-[#484955] opacity-0 group-hover:opacity-100 transition-opacity text-[#78787B] hover:text-[#DDDFDE]">
         <i data-lucide="settings" class="h-3.5 w-3.5"></i>
       </button>
-      <span class="text-[10px] font-mono text-slate-600 min-w-[12px] text-center">${cnt}</span>
+      <span class="text-[10px] font-mono text-[#484955] min-w-[12px] text-center">${cnt}</span>
     </div>`;
   }).join('');
 
@@ -403,7 +397,18 @@ function render(skipAnim = false) {
   if (navMap[S.view]) document.getElementById(navMap[S.view]).classList.add('nav-active');
 
   // Empty state
-  const groups = [...new Set(filt.map(s=>s.project))];
+  let groups = [...new Set(filt.map(s=>s.project))];
+  
+  if (S.projectOrder && S.projectOrder.length > 0) {
+    groups.sort((a, b) => {
+      let idxA = S.projectOrder.indexOf(a);
+      let idxB = S.projectOrder.indexOf(b);
+      if (idxA === -1) idxA = 999;
+      if (idxB === -1) idxB = 999;
+      return idxA - idxB;
+    });
+  }
+
   document.getElementById('emptyState').classList.toggle('hidden', groups.length>0);
   document.getElementById('servicesList').classList.toggle('hidden', groups.length===0);
 
@@ -412,16 +417,42 @@ function render(skipAnim = false) {
     const svcs = filt.filter(s=>s.project===proj);
     const col = svcs[0].color;
     const runCnt = svcs.filter(s=>s.status==='running').length;
-    return `<div class="anim-in">
+    const pData = S.projects[proj] || {};
+    const logoVal = pData.logo || proj.charAt(0).toUpperCase();
+    const isImage = logoVal.startsWith('data:image/') || logoVal.startsWith('http');
+    const logoContent = isImage ? `<img src="${logoVal}" class="w-full h-full object-cover rounded-lg" />` : logoVal;
+
+    return `<div class="anim-in bg-[#2e2d35] border border-[#484955]/50 rounded-xl p-4 relative proj-group-container hover:border-[#484955] transition-colors"
+                 data-proj="${proj}"
+                 ondragover="handleProjDragOver(event)"
+                 ondragleave="handleProjDragLeave(event)"
+                 ondrop="handleProjDrop(event, '${proj}')">
+      <!-- Drop indicator -->
+      <div class="proj-drop-indicator pointer-events-none absolute left-0 right-0 top-0 h-0.5 bg-[#CCFF00] rounded-t-xl opacity-0 transition-opacity drop-shadow-[0_0_8px_rgba(204,255,0,0.8)] z-10"></div>
+      
       <!-- Group header -->
       <div class="flex items-center gap-3 mb-3">
-        <div class="h-3 w-1 rounded-full" style="background:${col}"></div>
-        <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">${proj}</span>
-        <button onclick="openProjModal('${proj}')" title="Project Settings" class="h-6 w-6 rounded bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition text-slate-400 hover:text-slate-600">
+        <!-- Drag handle -->
+        <div draggable="true"
+             ondragstart="handleProjDragStart(event, '${proj}')"
+             ondragend="handleProjDragEnd(event)"
+             class="cursor-grab active:cursor-grabbing text-slate-700 hover:text-slate-500 transition-colors" title="Drag to reorder">
+          <i data-lucide="grip-vertical" class="h-4 w-4"></i>
+        </div>
+        
+        <!-- Logo -->
+        <button onclick="promptEditLogo('${proj}')" title="Change Logo" class="h-7 w-7 rounded-lg flex items-center justify-center text-[13px] font-bold text-white shadow-sm transition hover:scale-105 shrink-0 select-none overflow-hidden" style="background:${isImage ? 'transparent' : col+'22'}">
+          ${logoContent}
+        </button>
+
+        <span class="text-sm font-semibold text-[#DDDFDE] tracking-wide flex-1 truncate">${proj}</span>
+
+        <button onclick="openProjModal('${proj}')" title="Project Settings" class="h-6 w-6 rounded bg-[#484955]/40 hover:bg-[#484955] flex items-center justify-center transition text-[#78787B] hover:text-[#DDDFDE]">
           <i data-lucide="settings" class="h-3.5 w-3.5"></i>
         </button>
-        <div class="h-4 w-px bg-slate-200 ml-1"></div>
-        <button onclick="openAntigravityByProj('${proj}')" title="Open with Antigravity" class="h-7 px-2 rounded-lg bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-sm transition-all flex items-center gap-2 group/ag">
+        <div class="h-4 w-px bg-slate-200 ml-1 hidden sm:block"></div>
+        <button onclick="openAntigravityByProj('${proj}')" title="Open with Antigravity" class="hidden sm:flex h-7 px-2 rounded-lg bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-sm transition-all items-center gap-2 group/ag">
+
           <span class="text-[10px] font-semibold text-slate-400 group-hover/ag:text-indigo-600 transition-colors">Open with</span>
           <svg xmlns:xlink="http://www.w3.org/1999/xlink" fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 869 113" class="h-3.5 w-auto">
             <g clip-path="url(#clip_ag)" fill="none">
@@ -476,10 +507,14 @@ function render(skipAnim = false) {
             </defs>
           </svg>
         </button>
-        <span class="text-[10px] text-slate-400 font-medium">${runCnt}/${svcs.length} running</span>
-        <div class="flex-1 h-px bg-slate-200"></div>
-        <button onclick="groupAction('${proj}','start')" class="text-[10px] font-semibold text-emerald-600 hover:text-emerald-700 px-2 py-1 rounded hover:bg-emerald-50 transition">▶ All</button>
-        <button onclick="groupAction('${proj}','stop')"  class="text-[10px] font-semibold text-rose-500 hover:text-rose-600 px-2 py-1 rounded hover:bg-rose-50 transition">■ Stop</button>
+        <button onclick="openProjFolder('${proj}')" title="Open folder in Explorer" class="hidden sm:flex h-7 px-2.5 rounded-lg bg-[#484955]/40 hover:bg-[#484955] border border-[#484955]/50 hover:border-[#484955] transition-all items-center gap-1.5 text-[#78787B] hover:text-[#DDDFDE]">
+          <i data-lucide="folder-open" class="h-3.5 w-3.5"></i>
+          <span class="text-[10px] font-medium">Folder</span>
+        </button>
+        <span class="text-[10px] text-[#78787B] font-medium">${runCnt}/${svcs.length} running</span>
+        <div class="flex-1 h-px bg-[#484955]/30"></div>
+        <button onclick="groupAction('${proj}','start')" class="text-[10px] font-medium text-[#78787B] hover:text-[#DDDFDE] px-2 py-1 rounded hover:bg-[#484955]/30 transition">▶ All</button>
+        <button onclick="groupAction('${proj}','stop')"  class="text-[10px] font-medium text-[#78787B] hover:text-[#DDDFDE] px-2 py-1 rounded hover:bg-[#484955]/30 transition">■ Stop</button>
       </div>
       <!-- Cards -->
       <div class="space-y-1.5" ondragover="event.preventDefault()">
@@ -502,22 +537,22 @@ function svcCard(s) {
   const mkBadge = (href, label, dotColor) => {
     const display = href.replace(/^https?:\/\//, '');
     return `
-    <div class="group/url inline-flex items-center rounded-md border overflow-hidden ${label==='Local' ? 'border-indigo-200 bg-indigo-50' : 'border-emerald-200 bg-emerald-50'} transition-all hover:shadow-sm">
+    <div class="group/url inline-flex items-center rounded-md border overflow-hidden ${label==='Local' ? 'border-[#484955]/60 bg-[#484955]/15' : 'border-[#484955]/40 bg-[#484955]/10'} transition-all">
       <button onclick="openUrl('${href}')" title="Open ${href}"
-        class="flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold transition-colors ${label==='Local' ? 'text-indigo-600 hover:bg-indigo-100' : 'text-emerald-700 hover:bg-emerald-100'}">
+        class="flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-medium transition-colors ${label==='Local' ? 'text-[#DDDFDE] hover:bg-[#484955]/30' : 'text-[#78787B] hover:bg-[#484955]/20'}">
         <span class="h-1.5 w-1.5 rounded-full ${dotColor}"></span>
-        <span class="font-mono font-medium">${label}</span>
+        <span class="font-mono">${label}</span>
         <span class="opacity-60 max-w-[120px] truncate">${display}</span>
-        <i data-lucide="external-link" class="h-2.5 w-2.5 opacity-50"></i>
+        <i data-lucide="external-link" class="h-2.5 w-2.5 opacity-40"></i>
       </button>
       <button onclick="copyUrl('${href}')" title="Copy URL"
-        class="h-full px-1.5 border-l transition-colors opacity-0 group-hover/url:opacity-100 ${label==='Local' ? 'border-indigo-200 text-indigo-400 hover:bg-indigo-100 hover:text-indigo-700' : 'border-emerald-200 text-emerald-400 hover:bg-emerald-100 hover:text-emerald-700'}">
+        class="h-full px-1.5 border-l transition-colors opacity-0 group-hover/url:opacity-100 border-[#484955]/40 text-[#78787B] hover:bg-[#484955]/30 hover:text-[#DDDFDE]">
         <i data-lucide="copy" class="h-2.5 w-2.5"></i>
       </button>
     </div>`;
   };
 
-  return `<div class="group bg-white border border-slate-200 rounded-xl px-2 py-2.5 flex items-center gap-2 hover:border-slate-300 hover:shadow-sm transition-all anim-in"
+  return `<div class="group bg-[#3A3840] border border-[#484955]/50 rounded-xl px-2 py-2 flex items-center gap-2 hover:border-[#484955] hover:bg-[#3c3b43] transition-all anim-in"
        draggable="true" 
        ondragstart="handleDragStart(event, ${s.id})"
        ondragover="handleDragOver(event)"
@@ -525,37 +560,37 @@ function svcCard(s) {
        ondrop="handleDrop(event, ${s.id})"
        ondragend="handleDragEnd(event)">
     
-    <div class="cursor-grab active:cursor-grabbing px-1 text-slate-300 hover:text-slate-400 transition-colors shrink-0 -ml-1">
+    <div class="cursor-grab active:cursor-grabbing px-1 text-[#484955] hover:text-[#78787B] transition-colors shrink-0 -ml-1">
       <i data-lucide="grip-vertical" class="h-4 w-4"></i>
     </div>
 
-    <div class="h-2 w-2 rounded-full ${r ? 'bg-emerald-500 dot-running' : st ? 'bg-amber-400 animate-pulse' : err ? 'bg-rose-500' : 'bg-slate-300'} shrink-0 ml-1"></div>
+    <div class="h-1.5 w-1.5 rounded-full ${r ? 'bg-green-400 dot-running' : st ? 'bg-amber-400 animate-pulse' : err ? 'bg-rose-500' : 'bg-slate-700'} shrink-0 ml-1"></div>
     
     <div class="flex-1 min-w-0">
-      <div class="flex items-center gap-2.5 flex-wrap">
-        <span class="text-sm font-semibold text-slate-800 leading-none">${s.name}</span>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-sm font-semibold text-[#DDDFDE] leading-none">${s.name}</span>
         <div class="flex items-center gap-1.5 flex-wrap">
-          ${localUrl   ? mkBadge(localUrl,   'Local',   'bg-indigo-400')   : ''}
-          ${networkUrl ? mkBadge(networkUrl, 'Network', 'bg-emerald-500')  : ''}
+          ${localUrl   ? mkBadge(localUrl,   'Local',   'bg-green-400')   : ''}
+          ${networkUrl ? mkBadge(networkUrl, 'Network', 'bg-[#78787B]')  : ''}
         </div>
       </div>
-      <div class="text-[10px] font-mono text-slate-400 truncate mt-1 flex items-center gap-2">
-        <span class="bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 scale-90 origin-left">${s.cmd}</span>
-        ${s.dir ? `<span class="opacity-70 truncate">${s.dir}</span>` : ''}
+      <div class="text-[10px] font-mono text-[#484955] truncate mt-1 flex items-center gap-2">
+        <span class="bg-[#484955]/30 px-1.5 py-0.5 rounded text-[#78787B] scale-90 origin-left">${s.cmd}</span>
+        ${s.dir ? `<span class="opacity-50 truncate text-[#78787B]">${s.dir}</span>` : ''}
       </div>
     </div>
 
     <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity pr-1">
       ${r
-        ? `<button onclick="doStop(${s.id})"    title="Stop"    class="h-7 w-7 rounded-lg hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center transition text-slate-400"><i data-lucide="square" class="h-3.5 w-3.5"></i></button>`
-        : `<button onclick="doStart(${s.id})"   title="Start"   class="h-7 w-7 rounded-lg hover:bg-emerald-50 hover:text-emerald-600 flex items-center justify-center transition text-slate-400"><i data-lucide="play" class="h-3.5 w-3.5"></i></button>`
+        ? `<button onclick="doStop(${s.id})"    title="Stop"    class="h-7 w-7 rounded-lg hover:bg-rose-500/15 hover:text-rose-400 flex items-center justify-center transition text-[#DDDFDE]"><i data-lucide="square" class="h-3.5 w-3.5"></i></button>`
+        : `<button onclick="doStart(${s.id})"   title="Start"   class="h-7 w-7 rounded-lg hover:bg-green-500/15 hover:text-green-400 flex items-center justify-center transition text-[#DDDFDE]"><i data-lucide="play" class="h-3.5 w-3.5"></i></button>`
       }
-      <button onclick="doRestart(${s.id})" title="Restart" class="h-7 w-7 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 flex items-center justify-center transition text-slate-400"><i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i></button>
-      <button onclick="openLog(${s.id})"   title="Log"     class="h-7 w-7 rounded-lg hover:bg-slate-100 hover:text-slate-800 flex items-center justify-center transition text-slate-400"><i data-lucide="terminal" class="h-3.5 w-3.5"></i></button>
-      <div class="h-4 w-px bg-slate-200 mx-0.5"></div>
-      <button onclick="openDir(${s.id})"   title="Folder"  class="h-7 w-7 rounded-lg hover:bg-slate-100 flex items-center justify-center transition text-slate-400"><i data-lucide="folder" class="h-3.5 w-3.5"></i></button>
-      <button onclick="openModal(${s.id})" title="Edit"    class="h-7 w-7 rounded-lg hover:bg-slate-100 flex items-center justify-center transition text-slate-400"><i data-lucide="settings-2" class="h-3.5 w-3.5"></i></button>
-      <button onclick="deleteSvc(${s.id})" title="Delete"  class="h-7 w-7 rounded-lg hover:bg-rose-50 hover:text-rose-500 flex items-center justify-center transition text-slate-400"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+      <button onclick="doRestart(${s.id})" title="Restart" class="h-7 w-7 rounded-lg hover:bg-[#484955] hover:text-white flex items-center justify-center transition text-[#DDDFDE]"><i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i></button>
+      <button onclick="openLog(${s.id})"   title="Log"     class="h-7 w-7 rounded-lg hover:bg-[#484955] hover:text-white flex items-center justify-center transition text-[#DDDFDE]"><i data-lucide="terminal" class="h-3.5 w-3.5"></i></button>
+      <div class="h-4 w-px bg-[#484955]/50 mx-0.5"></div>
+      <button onclick="openDir(${s.id})"   title="Folder"  class="h-7 w-7 rounded-lg hover:bg-[#484955] hover:text-white flex items-center justify-center transition text-[#DDDFDE]"><i data-lucide="folder" class="h-3.5 w-3.5"></i></button>
+      <button onclick="openModal(${s.id})" title="Edit"    class="h-7 w-7 rounded-lg hover:bg-[#484955] hover:text-white flex items-center justify-center transition text-[#DDDFDE]"><i data-lucide="settings-2" class="h-3.5 w-3.5"></i></button>
+      <button onclick="deleteSvc(${s.id})" title="Delete"  class="h-7 w-7 rounded-lg hover:bg-rose-500/15 hover:text-rose-400 flex items-center justify-center transition text-[#DDDFDE]"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
     </div>
   </div>`;
 }
@@ -633,6 +668,7 @@ function handleDragEnd(e) { e.currentTarget.classList.remove('dragging'); }
 
 function handleDrop(e, targetId) {
   e.preventDefault();
+  e.stopPropagation();
   const card = e.currentTarget;
   card.classList.remove('drag-over');
   if (draggedId === targetId) return;
@@ -647,6 +683,109 @@ function handleDrop(e, targetId) {
 
   persist();
   render(true); // Skip animations for seamless reorder
+}
+
+// ── Project Drag & Drop ──────────────────────────────────
+let draggedProj = null;
+
+function handleProjDragStart(e, proj) {
+  draggedProj = proj;
+  e.dataTransfer.effectAllowed = 'move';
+  const container = e.target.closest('.proj-group-container');
+  if (container) setTimeout(() => container.classList.add('opacity-50'), 0);
+  e.stopPropagation();
+}
+
+function handleProjDragOver(e) {
+  if (!draggedProj) return;
+  e.preventDefault();
+  const container = e.currentTarget;
+  const indicator = container.querySelector('.proj-drop-indicator');
+  if (indicator) indicator.style.opacity = '1';
+}
+
+function handleProjDragLeave(e) {
+  if (!draggedProj) return;
+  const container = e.currentTarget;
+  const indicator = container.querySelector('.proj-drop-indicator');
+  if (indicator) indicator.style.opacity = '0';
+}
+
+function handleProjDragEnd(e) {
+  const container = e.target.closest('.proj-group-container');
+  if (container) container.classList.remove('opacity-50');
+  document.querySelectorAll('.proj-drop-indicator').forEach(el => el.style.opacity = '0');
+  draggedProj = null;
+}
+
+function handleProjDrop(e, targetProj) {
+  e.preventDefault();
+  e.stopPropagation();
+  const container = e.currentTarget;
+  const indicator = container.querySelector('.proj-drop-indicator');
+  if (indicator) indicator.style.opacity = '0';
+  
+  if (!draggedProj || draggedProj === targetProj) return;
+  
+  if (!S.projectOrder || S.projectOrder.length === 0) {
+    S.projectOrder = [...new Set(S.services.map(s => s.project))];
+  }
+  
+  const fromIdx = S.projectOrder.indexOf(draggedProj);
+  const toIdx   = S.projectOrder.indexOf(targetProj);
+  if (fromIdx === -1 || toIdx === -1) {
+    // Edge case if one is missing
+    S.projectOrder = [...new Set(S.services.map(s => s.project))];
+    return;
+  }
+  
+  S.projectOrder.splice(fromIdx, 1);
+  S.projectOrder.splice(toIdx, 0, draggedProj);
+  
+  persist();
+  render(true);
+}
+
+// ── Logo Editor ──────────────────────────────────────────
+function promptEditLogo(proj) {
+  const currentLogo = S.projects[proj]?.logo;
+  const isImage = currentLogo?.startsWith('data:image/') || currentLogo?.startsWith('http');
+
+  if (isImage) {
+    if (confirm('Bạn muốn Xóa logo hiện tại không? (Nhấn OK để xóa đưa về chữ, nhấn Cancel để Đổi ảnh mới)')) {
+      S.projects[proj].logo = null;
+      persist();
+      render(true);
+      toast('Đã xóa biểu tượng dự án!');
+      return;
+    }
+  }
+
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/png, image/jpeg, image/jpg, image/svg+xml, image/webp';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Check size limit (e.g., max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast('Vui lòng chọn ảnh có kích thước dưới 2MB', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target.result;
+      if (!S.projects[proj]) S.projects[proj] = {};
+      S.projects[proj].logo = base64;
+      persist();
+      render(true);
+      toast('Đã cập nhật biểu tượng dự án!');
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
 }
 
 function deleteSvc(id) {
@@ -681,8 +820,8 @@ function appendLog(l) {
   const body=document.getElementById('logBody');
   const d=document.createElement('div');
   d.className='flex gap-3';
-  const colMap={info:'text-blue-400',success:'text-emerald-400',warn:'text-amber-400',error:'text-rose-400',plain:'text-slate-500'};
-  d.innerHTML=`<span class="text-slate-700 shrink-0 select-none">${l.time}</span><span class="${colMap[l.type]||'text-slate-300'}">${esc(l.text)}</span>`;
+  const colMap={info:'text-blue-400',success:'text-green-400',warn:'text-amber-400',error:'text-rose-400',plain:'text-[#78787B]'};
+  d.innerHTML=`<span class="text-[#484955] shrink-0 select-none">${l.time}</span><span class="${colMap[l.type]||'text-[#DDDFDE]'}">${esc(l.text)}</span>`;
   body.appendChild(d);
   body.scrollTop=body.scrollHeight;
 }
@@ -761,7 +900,7 @@ function saveService() {
 
 function buildColorRow() {
   document.getElementById('colorRow').innerHTML=COLORS.map(c=>`
-    <div onclick="S.color='${c}';buildColorRow()" class="h-6 w-6 rounded-full cursor-pointer transition-all hover:scale-110 ${S.color===c?'ring-2 ring-offset-2 ring-slate-900 scale-110':''}" style="background:${c}"></div>
+    <div onclick="S.color='${c}';buildColorRow()" class="h-6 w-6 rounded-full cursor-pointer transition-all hover:scale-110 ${S.color===c?'ring-2 ring-offset-2 ring-offset-[#3A3840] ring-[#DDDFDE]/50 scale-110':''}" style="background:${c}"></div>
   `).join('');
 }
 
@@ -777,6 +916,17 @@ function openAntigravityByProj(projName) {
     return; 
   }
   if (window.api) window.api.openAntigravity(path);
+}
+
+function openProjFolder(projName) {
+  const pData = S.projects[projName] || {};
+  const dir = pData.path;
+  if (!dir) {
+    toast('Chưa cài đặt Project Path — vào Settings để thêm', 'warn');
+    openProjModal(projName);
+    return;
+  }
+  if (window.api) window.api.openFolder(dir);
 }
 
 // Project Modal Logic
@@ -813,7 +963,7 @@ let _toastT;
 function toast(msg, type='ok') {
   const el=document.getElementById('toast'), dot=document.getElementById('toastDot');
   document.getElementById('toastMsg').innerText=msg;
-  dot.className=`h-2 w-2 rounded-full ${type==='error'?'bg-rose-400':'bg-indigo-400'}`;
+  dot.className=`h-2 w-2 rounded-full ${type==='error'?'bg-rose-400':'bg-green-400'}`;
   el.classList.remove('hidden','toast-hide'); el.classList.add('toast-show');
   clearTimeout(_toastT); _toastT=setTimeout(()=>{el.classList.add('toast-hide');setTimeout(()=>el.classList.add('hidden'),200);},3000);
 }
