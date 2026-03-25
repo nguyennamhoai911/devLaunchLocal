@@ -13,13 +13,33 @@ function loadData() {
   return { services: [] };
 }
 
-function saveData(data) {
+function saveData(data, desc = 'Auto update') {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  
+  if (data.backupDir && fs.existsSync(data.backupDir)) {
+    try {
+      const dateStr = new Date().toLocaleString('vi-VN', { 
+        year: 'numeric', month: '2-digit', day: '2-digit', 
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+      }).replace(/[/:]/g, '-').replace(', ', '_').replace(/ /g, '');
+      
+      let safeDesc = (desc || 'Auto update')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      if (safeDesc.length > 40) safeDesc = safeDesc.substring(0, 40);
+      
+      const filename = `backup_${dateStr}_${safeDesc}.json`;
+      const filepath = path.join(data.backupDir, filename);
+      fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e) { console.error('Auto backup error:', e); }
+  }
 }
 
 // ── Process management ────────────────────────────────────────────────────────
 const processes = {}; // serviceId -> { proc, logs[] }
 const pids = {};      // serviceId -> lastKnownPid
+let isAppQuitting = false;
 
 function startProcess(win, service) {
   if (processes[service.id]) return;
@@ -118,13 +138,13 @@ function startProcess(win, service) {
 
     proc.on('error', err => {
       sendLog('error', `Không thể khởi động: ${err.message}`);
-      if (win && !win.isDestroyed()) win.webContents.send('status-change', { id: service.id, status: 'error' });
+      if (!isAppQuitting && win && !win.isDestroyed()) win.webContents.send('status-change', { id: service.id, status: 'error' });
       delete processes[service.id];
     });
 
     proc.on('close', code => {
       sendLog(code === 0 ? 'plain' : 'warn', `Tiến trình kết thúc (code: ${code})`);
-      if (win && !win.isDestroyed()) win.webContents.send('status-change', { id: service.id, status: code === 0 ? 'stopped' : 'error' });
+      if (!isAppQuitting && win && !win.isDestroyed()) win.webContents.send('status-change', { id: service.id, status: code === 0 ? 'stopped' : 'error' });
       delete processes[service.id];
     });
 
@@ -227,6 +247,7 @@ function createWindow() {
   mainWindow.loadFile('index.html');
 
   mainWindow.on('close', async (e) => {
+    isAppQuitting = true;
     const runningIds = Object.keys(processes);
     if (runningIds.length > 0) {
       e.preventDefault();
@@ -243,6 +264,8 @@ function createWindow() {
           await stopProcess(id);
         }
         app.exit(); // Thoát ép buộc sau khi đã clean up
+      } else {
+        isAppQuitting = false;
       }
     }
   });
@@ -250,7 +273,7 @@ function createWindow() {
 
 // ── IPC ───────────────────────────────────────────────────────────────────────
 ipcMain.handle('load-data', () => loadData());
-ipcMain.handle('save-data', (_, data) => { saveData(data); return true; });
+ipcMain.handle('save-data', (_, data, desc) => { saveData(data, desc); return true; });
 ipcMain.handle('start-service', (_, s) => { startProcess(mainWindow, s); return { ok: true }; });
 ipcMain.handle('stop-service', async (_, id) => {
   const data = loadData();
@@ -308,5 +331,19 @@ ipcMain.handle('import-backup', async () => {
   return null;
 });
 
-app.whenReady().then(createWindow);
-app.on('window-all-closed', () => app.quit());
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
+  app.whenReady().then(createWindow);
+  app.on('window-all-closed', () => app.quit());
+}
