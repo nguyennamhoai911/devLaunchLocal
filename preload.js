@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
   loadData: () => ipcRenderer.invoke('load-data'),
-  saveData: (data, desc) => ipcRenderer.invoke('save-data', data, desc),
+  saveData: (data, desc, skipBackup) => ipcRenderer.invoke('save-data', data, desc, skipBackup),
   startService: (service) => ipcRenderer.invoke('start-service', service),
   stopService: (id) => ipcRenderer.invoke('stop-service', id),
   restartService: (service) => ipcRenderer.invoke('restart-service', service),

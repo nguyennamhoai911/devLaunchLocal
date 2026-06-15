@@ -13,10 +13,10 @@ function loadData() {
   return { services: [] };
 }
 
-function saveData(data, desc = 'Auto update') {
+function saveData(data, desc = 'Auto update', skipBackup = false) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
   
-  if (data.backupDir && fs.existsSync(data.backupDir)) {
+  if (!skipBackup && data.backupDir && fs.existsSync(data.backupDir)) {
     try {
       const dateStr = new Date().toLocaleString('vi-VN', { 
         year: 'numeric', month: '2-digit', day: '2-digit', 
@@ -32,6 +32,33 @@ function saveData(data, desc = 'Auto update') {
       const filename = `backup_${dateStr}_${safeDesc}.json`;
       const filepath = path.join(data.backupDir, filename);
       fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
+
+      // Keep only the latest 20 backup files
+      const files = fs.readdirSync(data.backupDir);
+      const backupFiles = files
+        .filter(f => f.startsWith('backup_') && f.endsWith('.json'))
+        .map(f => {
+          const fp = path.join(data.backupDir, f);
+          try {
+            const stat = fs.statSync(fp);
+            return { name: f, path: fp, mtime: stat.mtimeMs };
+          } catch (err) {
+            return null;
+          }
+        })
+        .filter(Boolean);
+      
+      if (backupFiles.length > 20) {
+        backupFiles.sort((a, b) => b.mtime - a.mtime); // Newest first
+        const toDelete = backupFiles.slice(20);
+        for (const fileInfo of toDelete) {
+          try {
+            fs.unlinkSync(fileInfo.path);
+          } catch (err) {
+            console.error(`Failed to delete old backup file: ${fileInfo.path}`, err);
+          }
+        }
+      }
     } catch (e) { console.error('Auto backup error:', e); }
   }
 }
@@ -273,7 +300,7 @@ function createWindow() {
 
 // ── IPC ───────────────────────────────────────────────────────────────────────
 ipcMain.handle('load-data', () => loadData());
-ipcMain.handle('save-data', (_, data, desc) => { saveData(data, desc); return true; });
+ipcMain.handle('save-data', (_, data, desc, skipBackup) => { saveData(data, desc, skipBackup); return true; });
 ipcMain.handle('start-service', (_, s) => { startProcess(mainWindow, s); return { ok: true }; });
 ipcMain.handle('stop-service', async (_, id) => {
   const data = loadData();

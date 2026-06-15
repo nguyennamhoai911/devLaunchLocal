@@ -372,13 +372,13 @@ async function init() {
     });
     
     window.api.onLogLine(({id, line}) => { if (S.logOpenId===id) appendLog(line); });
-    window.api.onStatusChange(({id, status}) => { const s=S.services.find(x=>x.id===id); if(s){s.status=status;persist('Cập nhật trạng thái service');render();} });
+    window.api.onStatusChange(({id, status}) => { const s=S.services.find(x=>x.id===id); if(s){s.status=status;persist('Cập nhật trạng thái service', true);render();} });
     window.api.onUrlDetected(({id, local, network}) => {
       const s=S.services.find(x=>x.id===id); if(!s) return;
       if(local   && !s.localUrl)   s.localUrl   = local;
       if(network && !s.networkUrl) s.networkUrl = network;
       if(local   && !s.url)        s.url        = local;
-      persist('Cập nhật URL service'); render();
+      persist('Cập nhật URL service', true); render();
     });
   } else {
     S.services=[
@@ -390,8 +390,8 @@ async function init() {
   render();
 }
 
-function persist(desc = 'Auto_Update') { 
-  if(window.api) window.api.saveData({services:S.services, projects:S.projects, projectOrder:S.projectOrder, backupDir:S.backupDir}, desc); 
+function persist(desc = 'Auto_Update', skipBackup = false) { 
+  if(window.api) window.api.saveData({services:S.services, projects:S.projects, projectOrder:S.projectOrder, backupDir:S.backupDir}, desc, skipBackup); 
 }
 
 async function pickAutoBackupDir() {
@@ -656,7 +656,7 @@ async function doStart(id) {
 
 async function doStop(id) {
   const s = S.services.find(x=>x.id===id); if(!s) return;
-  s.status='stopped'; persist(); render();
+  s.status='stopped'; persist('Auto_Update', true); render();
   if (window.api) await window.api.stopService(id);
 }
 
