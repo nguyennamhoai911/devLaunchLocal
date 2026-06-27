@@ -596,7 +596,16 @@ function createWindow() {
 }
 
 // ── IPC Handlers ──────────────────────────────────────────────────────────────
-ipcMain.handle('load-data', () => serviceManager.loadData());
+ipcMain.handle('load-data', () => {
+  const data = serviceManager.loadData();
+  const isMulti = process.argv.includes('--multi') || process.argv.includes('--multi-instance') || process.env.DEVLAUNCH_MULTI === '1';
+  if (isMulti && data && data.services) {
+    data.services.forEach(s => {
+      s.status = 'stopped';
+    });
+  }
+  return data;
+});
 ipcMain.handle('save-data', (_, data, desc, skipBackup) => { serviceManager.saveData(data, desc, skipBackup); return true; });
 ipcMain.handle('start-service', (_, s) => { serviceManager.startService(s); return { ok: true }; });
 ipcMain.handle('stop-service', async (_, id) => {
