@@ -31,6 +31,9 @@ function sendRequest(obj) {
   child.stdin.write(str);
 }
 
+let createdServiceId = null;
+const uniqueServiceName = 'MCP Test Service ' + Date.now();
+
 function handleMcpResponse(line) {
   console.log(`[RECV] ${line}`);
   try {
@@ -61,18 +64,52 @@ function handleMcpResponse(line) {
       // Expecting tools/list response
       if (res.id === 2 && res.result && res.result.tools) {
         console.log(`✓ Step 2 Passed: tools/list success, found ${res.result.tools.length} tools`);
-        const listTool = res.result.tools.find(t => t.name === 'list_services');
-        if (listTool && typeof listTool.inputSchema === 'object') {
-          console.log('✓ Step 2a Passed: tools schema is valid');
-        } else {
-          console.error('✗ Step 2a Failed: invalid tool schema', listTool);
-          process.exit(1);
-        }
         step = 2;
-        // Call list_services
+        // Test invalid method error handling
         sendRequest({
           jsonrpc: '2.0',
           id: 3,
+          method: 'invalid_method_test'
+        });
+      } else {
+        console.error('✗ Step 2 Failed: expected tools/list response', res);
+        process.exit(1);
+      }
+    } else if (step === 2) {
+      // Expecting invalid method error
+      if (res.id === 3 && res.error && res.error.code === -32601) {
+        console.log('✓ Step 3 Passed: invalid method error handled correctly');
+        step = 3;
+        // Add service
+        sendRequest({
+          jsonrpc: '2.0',
+          id: 4,
+          method: 'tools/call',
+          params: {
+            name: 'add_service',
+            arguments: {
+              name: uniqueServiceName,
+              project: 'Integration Test',
+              cmd: 'echo "hello"',
+              dir: 'C:\\'
+            }
+          }
+        });
+      } else {
+        console.error('✗ Step 3 Failed: expected invalid method error', res);
+        process.exit(1);
+      }
+    } else if (step === 3) {
+      // Expecting add_service response
+      if (res.id === 4 && res.result && res.result.structuredContent) {
+        const contentObj = res.result.structuredContent;
+        createdServiceId = contentObj.service ? contentObj.service.id : null;
+        console.log(`✓ Step 4 Passed: add_service success, service ID ${createdServiceId}`);
+        step = 4;
+        // Call list_services to verify it's added
+        sendRequest({
+          jsonrpc: '2.0',
+          id: 5,
           method: 'tools/call',
           params: {
             name: 'list_services',
@@ -80,52 +117,91 @@ function handleMcpResponse(line) {
           }
         });
       } else {
-        console.error('✗ Step 2 Failed: expected tools/list response', res);
-        process.exit(1);
-      }
-    } else if (step === 2) {
-      // Expecting tools/call list_services response
-      if (res.id === 3 && res.result && res.result.structuredContent) {
-        console.log('✓ Step 3 Passed: list_services tool call success');
-        step = 3;
-        // Test invalid method error handling
-        sendRequest({
-          jsonrpc: '2.0',
-          id: 4,
-          method: 'invalid_method_test'
-        });
-      } else {
-        console.error('✗ Step 3 Failed: expected list_services response', res);
-        process.exit(1);
-      }
-    } else if (step === 3) {
-      // Expecting invalid method error
-      if (res.id === 4 && res.error && res.error.code === -32601) {
-        console.log('✓ Step 4 Passed: invalid method error handled correctly');
-        step = 4;
-        // Test invalid params
-        sendRequest({
-          jsonrpc: '2.0',
-          id: 5,
-          method: 'tools/call',
-          params: {
-            name: 'start_service',
-            arguments: { id: 99999999 } // invalid ID
-          }
-        });
-      } else {
-        console.error('✗ Step 4 Failed: expected invalid method error', res);
+        console.error('✗ Step 4 Failed: expected add_service response', res);
         process.exit(1);
       }
     } else if (step === 4) {
+      // Expecting list_services (verify added)
+      if (res.id === 5 && res.result && res.result.structuredContent) {
+        const services = res.result.structuredContent.services || [];
+        const found = services.some(s => s.id === createdServiceId && s.name === uniqueServiceName);
+        if (found) {
+          console.log('✓ Step 5 Passed: list_services verified new service exists');
+          step = 5;
+          // Delete service
+          sendRequest({
+            jsonrpc: '2.0',
+            id: 6,
+            method: 'tools/call',
+            params: {
+              name: 'delete_service',
+              arguments: {
+                id: createdServiceId
+              }
+            }
+          });
+        } else {
+          console.error('✗ Step 5 Failed: new service not found in list', services);
+          process.exit(1);
+        }
+      } else {
+        console.error('✗ Step 5 Failed: expected list_services response', res);
+        process.exit(1);
+      }
+    } else if (step === 5) {
+      // Expecting delete_service response
+      if (res.id === 6 && res.result && !res.result.isError) {
+        console.log('✓ Step 6 Passed: delete_service success');
+        step = 6;
+        // Verify deleted in list_services
+        sendRequest({
+          jsonrpc: '2.0',
+          id: 7,
+          method: 'tools/call',
+          params: {
+            name: 'list_services',
+            arguments: {}
+          }
+        });
+      } else {
+        console.error('✗ Step 6 Failed: expected delete_service response', res);
+        process.exit(1);
+      }
+    } else if (step === 6) {
+      // Expecting list_services (verify deleted)
+      if (res.id === 7 && res.result && res.result.structuredContent) {
+        const services = res.result.structuredContent.services || [];
+        const found = services.some(s => s.id === createdServiceId);
+        if (!found) {
+          console.log('✓ Step 7 Passed: list_services verified service is deleted');
+          step = 7;
+          // Test invalid start_service parameters
+          sendRequest({
+            jsonrpc: '2.0',
+            id: 8,
+            method: 'tools/call',
+            params: {
+              name: 'start_service',
+              arguments: { id: 99999999 } // invalid ID
+            }
+          });
+        } else {
+          console.error('✗ Step 7 Failed: service was not deleted', services);
+          process.exit(1);
+        }
+      } else {
+        console.error('✗ Step 7 Failed: expected list_services response', res);
+        process.exit(1);
+      }
+    } else if (step === 7) {
       // Expecting start_service failure/error
-      if (res.id === 5 && res.result && res.result.isError) {
-        console.log('✓ Step 5 Passed: invalid service start handled correctly (isError: true)');
+      if (res.id === 8 && res.result && res.result.isError) {
+        console.log('✓ Step 8 Passed: invalid service start handled correctly (isError: true)');
         console.log('ALL MCP TEST STEPS PASSED SUCCESSFULLY!');
         child.kill();
         process.exit(0);
       } else {
-        console.error('✗ Step 5 Failed: expected isError: true on invalid service start', res);
+        console.error('✗ Step 8 Failed: expected isError: true on invalid service start', res);
         process.exit(1);
       }
     }

@@ -48,7 +48,7 @@ class ServiceManager extends EventEmitter {
       fs.writeFileSync(this.dataFile, JSON.stringify(merged, null, 2), 'utf-8');
       this.emit('services-updated', merged);
 
-      if (!skipBackup && data.backupDir && fs.existsSync(data.backupDir)) {
+      if (!skipBackup && merged.backupDir && fs.existsSync(merged.backupDir)) {
         try {
           const dateStr = new Date().toLocaleString('vi-VN', { 
             year: 'numeric', month: '2-digit', day: '2-digit', 
@@ -62,15 +62,15 @@ class ServiceManager extends EventEmitter {
           if (safeDesc.length > 40) safeDesc = safeDesc.substring(0, 40);
           
           const filename = `backup_${dateStr}_${safeDesc}.json`;
-          const filepath = path.join(data.backupDir, filename);
-          fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
+          const filepath = path.join(merged.backupDir, filename);
+          fs.writeFileSync(filepath, JSON.stringify(merged, null, 2), 'utf-8');
 
           // Keep only the latest 20 backup files
-          const files = fs.readdirSync(data.backupDir);
+          const files = fs.readdirSync(merged.backupDir);
           const backupFiles = files
             .filter(f => f.startsWith('backup_') && f.endsWith('.json'))
             .map(f => {
-              const fp = path.join(data.backupDir, f);
+              const fp = path.join(merged.backupDir, f);
               try {
                 const stat = fs.statSync(fp);
                 return { name: f, path: fp, mtime: stat.mtimeMs };
@@ -266,9 +266,13 @@ class ServiceManager extends EventEmitter {
             lines.forEach(line => {
               const parts = line.trim().split(/\s+/);
               if (parts.length > 4 && line.includes('LISTENING')) {
-                const portPid = parts[parts.length - 1];
-                if (portPid && portPid !== '0') {
-                  spawn('taskkill', ['/pid', portPid, '/f', '/t'], { shell: true });
+                const localAddress = parts[1]; // e.g. 127.0.0.1:3000 or [::]:3000
+                const localPortMatch = localAddress.match(/:(\d+)$/);
+                if (localPortMatch && localPortMatch[1] === port) {
+                  const portPid = parts[parts.length - 1];
+                  if (portPid && portPid !== '0') {
+                    spawn('taskkill', ['/pid', portPid, '/f', '/t'], { shell: true });
+                  }
                 }
               }
             });
