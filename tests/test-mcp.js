@@ -2,19 +2,37 @@ const { spawn } = require('child_process');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
+const os = require('os');
 
-// Read port from services.json or default to 20263
-const appData = process.env.APPDATA || (process.platform === 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME + '/.config');
-const userDataPath = path.join(appData, 'devlaunch');
-const servicesPath = path.join(userDataPath, 'services.json');
-let mcpPort = 20263;
-try {
-  const fileContent = fs.readFileSync(servicesPath, 'utf8');
-  const servicesData = JSON.parse(fileContent);
-  if (servicesData.mcpPort) {
-    mcpPort = servicesData.mcpPort;
+// Phase 1 E2E Isolation: Create a completely separate, clean APPDATA environment
+const tmpAppData = fs.mkdtempSync(path.join(os.tmpdir(), 'devlaunch-mcp-test-'));
+
+const testAppDataPath = process.platform === 'win32'
+  ? tmpAppData
+  : (process.platform === 'darwin'
+      ? path.join(tmpAppData, 'Library', 'Application Support')
+      : path.join(tmpAppData, '.config'));
+const testUserDataPath = path.join(testAppDataPath, 'devlaunch');
+const testServicesPath = path.join(testUserDataPath, 'services.json');
+
+// Ensure directory and write default services.json with random port to prevent GUI conflicts
+fs.mkdirSync(testUserDataPath, { recursive: true });
+const mcpPort = 20288;
+fs.writeFileSync(testServicesPath, JSON.stringify({
+  services: [],
+  mcpPort: mcpPort,
+  mcpEnabled: false
+}, null, 2));
+
+function cleanupAndExit(code) {
+  console.log(`Cleaning up test temp directory: ${tmpAppData}`);
+  try {
+    fs.rmSync(tmpAppData, { recursive: true, force: true });
+  } catch (e) {
+    console.error(`Failed to clean up temp directory: ${e.message}`);
   }
-} catch (e) {}
+  process.exit(code);
+}
 
 let phase = 1; // Phase 1: Standalone, Phase 2: Proxy
 let step = 0;
@@ -124,7 +142,12 @@ function stopMockGuiServer() {
 function spawnMcpServer() {
   console.log(`\nSpawning DevLaunch Standalone MCP Server (Phase ${phase})...`);
   child = spawn('node', ['mcp-server.js'], {
-    cwd: path.resolve(__dirname, '..')
+    cwd: path.resolve(__dirname, '..'),
+    env: {
+      ...process.env,
+      APPDATA: tmpAppData,
+      HOME: tmpAppData
+    }
   });
 
   buffer = '';
@@ -184,7 +207,7 @@ function handleMcpResponse(line) {
           }, 500);
         } else {
           console.error('✗ Step 1 Failed', res);
-          process.exit(1);
+          cleanupAndExit(1);
         }
       } else if (step === 1) {
         if (res.id === 2 && res.result && res.result.tools) {
@@ -193,7 +216,7 @@ function handleMcpResponse(line) {
           sendRequest({ jsonrpc: '2.0', id: 3, method: 'invalid_method_test' });
         } else {
           console.error('✗ Step 2 Failed', res);
-          process.exit(1);
+          cleanupAndExit(1);
         }
       } else if (step === 2) {
         if (res.id === 3 && res.error && res.error.code === -32601) {
@@ -215,7 +238,7 @@ function handleMcpResponse(line) {
           });
         } else {
           console.error('✗ Step 3 Failed', res);
-          process.exit(1);
+          cleanupAndExit(1);
         }
       } else if (step === 3) {
         if (res.id === 4 && res.result && res.result.structuredContent) {
@@ -231,7 +254,7 @@ function handleMcpResponse(line) {
           });
         } else {
           console.error('✗ Step 4 Failed', res);
-          process.exit(1);
+          cleanupAndExit(1);
         }
       } else if (step === 4) {
         if (res.id === 5 && res.result && res.result.structuredContent) {
@@ -248,11 +271,11 @@ function handleMcpResponse(line) {
             });
           } else {
             console.error('✗ Step 5 Failed: service not found', services);
-            process.exit(1);
+            cleanupAndExit(1);
           }
         } else {
           console.error('✗ Step 5 Failed', res);
-          process.exit(1);
+          cleanupAndExit(1);
         }
       } else if (step === 5) {
         if (res.id === 6 && res.result && !res.result.isError) {
@@ -266,7 +289,7 @@ function handleMcpResponse(line) {
           });
         } else {
           console.error('✗ Step 6 Failed', res);
-          process.exit(1);
+          cleanupAndExit(1);
         }
       } else if (step === 6) {
         if (res.id === 7 && res.result && res.result.structuredContent) {
@@ -283,11 +306,11 @@ function handleMcpResponse(line) {
             });
           } else {
             console.error('✗ Step 7 Failed: service was not deleted', services);
-            process.exit(1);
+            cleanupAndExit(1);
           }
         } else {
           console.error('✗ Step 7 Failed', res);
-          process.exit(1);
+          cleanupAndExit(1);
         }
       } else if (step === 7) {
         if (res.id === 8 && res.result && res.result.isError) {
@@ -304,7 +327,7 @@ function handleMcpResponse(line) {
           });
         } else {
           console.error('✗ Step 8 Failed', res);
-          process.exit(1);
+          cleanupAndExit(1);
         }
       }
     } else if (phase === 2) {
@@ -319,7 +342,7 @@ function handleMcpResponse(line) {
           }, 500);
         } else {
           console.error('✗ Phase 2 Step 1 Failed', res);
-          process.exit(1);
+          cleanupAndExit(1);
         }
       } else if (step === 1) {
         if (res.id === 2 && res.result && res.result.tools) {
@@ -331,20 +354,20 @@ function handleMcpResponse(line) {
             // Clean up and exit
             child.kill();
             stopMockGuiServer();
-            process.exit(0);
+            cleanupAndExit(0);
           } else {
             console.error('✗ Phase 2 Step 2 Failed: mock tool not found', res.result.tools);
-            process.exit(1);
+            cleanupAndExit(1);
           }
         } else {
           console.error('✗ Phase 2 Step 2 Failed', res);
-          process.exit(1);
+          cleanupAndExit(1);
         }
       }
     }
   } catch (err) {
     console.error('Failed to parse line:', err);
-    process.exit(1);
+    cleanupAndExit(1);
   }
 }
 

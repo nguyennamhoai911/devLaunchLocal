@@ -11,6 +11,9 @@ class ServiceManager extends EventEmitter {
     this.processes = {}; // serviceId -> { proc, logs[] }
     this.pids = {};      // serviceId -> lastKnownPid
     this.isQuitting = false;
+    try {
+      fs.mkdirSync(this.userDataPath, { recursive: true });
+    } catch (e) {}
   }
 
   loadData() {
