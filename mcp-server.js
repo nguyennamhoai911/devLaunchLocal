@@ -1,4 +1,4 @@
-const net = require('net');
+const http = require('http');
 const path = require('path');
 const readline = require('readline');
 const ServiceManager = require('./service-manager');
@@ -25,45 +25,117 @@ function isJsonRpcPayload(chunk) {
 process.stderr.write(`[MCP Bridge] Attempting proxy connection to DevLaunch GUI on 127.0.0.1:${port}...\n`);
 
 let fallbackTriggered = false;
+let sseRequest = null;
+
 const triggerFallback = () => {
   if (fallbackTriggered) return;
   fallbackTriggered = true;
-  client.destroy();
+  if (sseRequest) {
+    try { sseRequest.destroy(); } catch (e) {}
+  }
   process.stderr.write('[MCP Standalone] GUI connection failed. Starting Standalone Headless Master Mode...\n');
   runStandaloneHeadless();
 };
 
-const client = net.createConnection({ port, host: '127.0.0.1' });
-client.setTimeout(500); // 500ms timeout to detect GUI presence quickly
+// Establish GET request to SSE server
+sseRequest = http.request({
+  host: '127.0.0.1',
+  port: port,
+  path: '/sse',
+  method: 'GET',
+  headers: {
+    'Accept': 'text/event-stream'
+  },
+  timeout: 1000 // 1000ms connection timeout to detect GUI presence quickly
+}, (res) => {
+  if (res.statusCode !== 200) {
+    triggerFallback();
+    return;
+  }
 
-client.on('connect', () => {
+  // Disable timeout once connected to allow open-ended EventSource stream
+  sseRequest.setTimeout(0);
+  if (res.socket) {
+    res.socket.setTimeout(0);
+  }
+
   process.stderr.write('[MCP Bridge] Connected to GUI! Proxying stdio...\n');
-  const rl = readline.createInterface({ input: process.stdin });
-  rl.on('line', (line) => {
-    client.write(line + '\n');
+
+  let buffer = '';
+  let endpoint = null;
+
+  res.on('data', (chunk) => {
+    buffer += chunk.toString();
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop();
+
+    for (const part of parts) {
+      const lines = part.split('\n');
+      let eventType = null;
+      let dataVal = null;
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          eventType = line.substring(7).trim();
+        } else if (line.startsWith('data: ')) {
+          dataVal = line.substring(6).trim();
+        }
+      }
+      if (eventType === 'endpoint' && dataVal) {
+        endpoint = dataVal;
+        setupStdinBridge(endpoint);
+      } else if (eventType === 'message' && dataVal) {
+        // Output the JSON-RPC response to stdout
+        process.stdout.write(dataVal + '\n');
+      }
+    }
   });
 
-  client.on('data', (chunk) => {
-    process.stdout.write(chunk);
-  });
-
-  client.on('end', () => {
+  res.on('end', () => {
     process.exit(0);
   });
 
-  client.on('error', () => {
+  res.on('error', () => {
     process.exit(1);
   });
 });
 
-client.on('timeout', () => {
+sseRequest.on('timeout', () => {
   triggerFallback();
 });
 
-client.on('error', (err) => {
+sseRequest.on('error', (err) => {
   process.stderr.write(`[MCP Bridge] GUI not found: ${err.message}\n`);
   triggerFallback();
 });
+
+sseRequest.end();
+
+function setupStdinBridge(endpoint) {
+  const rl = readline.createInterface({ input: process.stdin });
+  rl.on('line', (line) => {
+    if (!line.trim()) return;
+
+    const postReq = http.request({
+      host: '127.0.0.1',
+      port: port,
+      path: endpoint,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(line)
+      }
+    }, (postRes) => {
+      postRes.resume();
+    });
+
+    postReq.on('error', (err) => {
+      process.stderr.write(`[MCP Proxy Error] Failed to POST message: ${err.message}\n`);
+    });
+
+    postReq.write(line);
+    postReq.end();
+  });
+}
 
 function runStandaloneHeadless() {
   const mcpHandler = new McpHandler();

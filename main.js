@@ -28,6 +28,7 @@ function isJsonRpcPayload(chunk) {
 }
 
 function runMcpCli() {
+  const http = require('http');
   process.stderr.write('[DEBUG] runMcpCli started\n');
   const userDataPath = app.getPath('userData');
   const serviceManager = new ServiceManager(userDataPath);
@@ -37,44 +38,115 @@ function runMcpCli() {
   process.stderr.write(`[DEBUG] Attempting proxy connection to 127.0.0.1:${port}...\n`);
   
   let fallbackTriggered = false;
+  let sseRequest = null;
+
   const triggerFallback = () => {
     if (fallbackTriggered) return;
     fallbackTriggered = true;
-    client.destroy();
+    if (sseRequest) {
+      try { sseRequest.destroy(); } catch (e) {}
+    }
     process.stderr.write('[DEBUG] Proxy connection failed. Starting Standalone Headless Master Mode...\n');
     runStandaloneHeadless(serviceManager);
   };
 
-  const client = net.createConnection({ port, host: '127.0.0.1' });
-  client.setTimeout(500); // 500ms timeout to detect GUI presence quickly
+  sseRequest = http.request({
+    host: '127.0.0.1',
+    port: port,
+    path: '/sse',
+    method: 'GET',
+    headers: {
+      'Accept': 'text/event-stream'
+    },
+    timeout: 1000
+  }, (res) => {
+    if (res.statusCode !== 200) {
+      triggerFallback();
+      return;
+    }
 
-  client.on('connect', () => {
+    // Disable timeout once connected to allow open-ended EventSource stream
+    sseRequest.setTimeout(0);
+    if (res.socket) {
+      res.socket.setTimeout(0);
+    }
+
     process.stderr.write('[DEBUG] Proxy connection established with GUI instance!\n');
-    const rl = readline.createInterface({ input: process.stdin });
-    rl.on('line', (line) => {
-      client.write(line + '\n');
+
+    let buffer = '';
+    let endpoint = null;
+
+    res.on('data', (chunk) => {
+      buffer += chunk.toString();
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop();
+
+      for (const part of parts) {
+        const lines = part.split('\n');
+        let eventType = null;
+        let dataVal = null;
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.substring(7).trim();
+          } else if (line.startsWith('data: ')) {
+            dataVal = line.substring(6).trim();
+          }
+        }
+        if (eventType === 'endpoint' && dataVal) {
+          endpoint = dataVal;
+          setupStdinBridge(endpoint, port);
+        } else if (eventType === 'message' && dataVal) {
+          process.stdout.write(dataVal + '\n');
+        }
+      }
     });
 
-    client.on('data', (chunk) => {
-      process.stdout.write(chunk);
-    });
-
-    client.on('end', () => {
+    res.on('end', () => {
       process.exit(0);
     });
 
-    client.on('error', () => {
+    res.on('error', () => {
       process.exit(1);
     });
   });
 
-  client.on('timeout', () => {
+  sseRequest.on('timeout', () => {
     triggerFallback();
   });
 
-  client.on('error', (err) => {
+  sseRequest.on('error', (err) => {
     process.stderr.write(`[DEBUG] TCP connection error: ${err.message}\n`);
     triggerFallback();
+  });
+
+  sseRequest.end();
+}
+
+function setupStdinBridge(endpoint, port) {
+  const http = require('http');
+  const rl = readline.createInterface({ input: process.stdin });
+  rl.on('line', (line) => {
+    if (!line.trim()) return;
+
+    const postReq = http.request({
+      host: '127.0.0.1',
+      port: port,
+      path: endpoint,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(line)
+      }
+    }, (postRes) => {
+      postRes.resume();
+    });
+
+    postReq.on('error', (err) => {
+      process.stderr.write(`[MCP Proxy Error] Failed to POST message: ${err.message}\n`);
+    });
+
+    postReq.write(line);
+    postReq.end();
   });
 }
 

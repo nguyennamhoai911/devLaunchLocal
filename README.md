@@ -83,8 +83,8 @@ Khi chạy DevLaunch ở dạng đóng gói, bạn có thể truyền flag `--mc
 }
 ```
 
-### 2. Cách hoạt động & Bảo mật (GUI Sync & Consent)
-- **GUI Sync**: Nếu ứng dụng DevLaunch (Giao diện GUI) đang mở, các yêu cầu từ AI sẽ tự động đồng bộ thời gian thực thông qua cổng TCP nội bộ (`127.0.0.1:20263`). Bạn sẽ thấy các service bật/tắt và log hiển thị trực tiếp trên GUI.
-- **Standalone Fallback**: Nếu GUI đóng, MCP server sẽ chạy ngầm độc lập (headless), quản lý và ghi nhận log các tiến trình trong bộ nhớ và lưu trạng thái vào file `services.json`.
-- **Xác nhận bảo mật**: Trong phần cài đặt MCP ở Sidebar GUI, bạn có thể bật tính năng **"Require Approval"**. Khi được kích hoạt, bất kỳ thao tác nhạy cảm nào do AI yêu cầu (như bật, tắt, thêm hoặc xóa service) đều phải được bạn click **Allow** (Cho phép) trên màn hình thì tiến trình mới thực thi. Hỗ trợ tự động từ chối (Deny) sau 60 giây nếu bạn không tương tác.
+### 2. Cách hoạt động & Bảo mật (GUI Sync)
+- **GUI Sync**: Nếu ứng dụng DevLaunch (Giao diện GUI) đang mở, các yêu cầu từ AI sẽ tự động đồng bộ thời gian thực thông qua HTTP/SSE nội bộ (`127.0.0.1:20263`). Bạn sẽ thấy các service bật/tắt và log hiển thị trực tiếp trên GUI.
+- **Standalone Fallback**: Nếu GUI đóng, MCP server sẽ chạy độc lập (headless), tự động quản lý và lưu trạng thái vào file `services.json`.
+- **An toàn nội bộ (Local-only)**: Cổng giao tiếp MCP chỉ lắng nghe trên giao diện `127.0.0.1` (localhost), tuyệt đối không mở ra ngoài Internet, đảm bảo an toàn tối đa cho hệ thống của bạn.
 
