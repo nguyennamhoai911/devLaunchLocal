@@ -302,9 +302,9 @@ let mcpClients = [];
 const mcpHandler = new McpHandler();
 const pendingApprovals = new Map();
 let nextApprovalId = 1;
-
 function runGuiMode() {
-  const gotTheLock = app.requestSingleInstanceLock();
+  const isMultiInstance = process.argv.includes('--multi') || process.argv.includes('--multi-instance') || process.env.DEVLAUNCH_MULTI === '1';
+  const gotTheLock = isMultiInstance ? true : app.requestSingleInstanceLock();
 
   if (!gotTheLock) {
     app.quit();
