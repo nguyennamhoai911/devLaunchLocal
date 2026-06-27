@@ -114,72 +114,27 @@ function runStandaloneHeadless() {
     },
     startService: async (id) => {
       const data = serviceManager.loadData();
-      if (data.mcpRequireApproval) {
-        process.stderr.write(`[MCP Audit] start_service denied: requireApproval is enabled but running headless.\n`);
-        return false;
-      }
       const s = data.services.find(x => x.id === id);
       if (!s) return false;
       return serviceManager.startService(s);
     },
     stopService: async (id) => {
-      const data = serviceManager.loadData();
-      if (data.mcpRequireApproval) {
-        process.stderr.write(`[MCP Audit] stop_service denied: requireApproval is enabled but running headless.\n`);
-        return;
-      }
       await serviceManager.stopService(id);
     },
     restartService: async (id) => {
       const data = serviceManager.loadData();
-      if (data.mcpRequireApproval) {
-        process.stderr.write(`[MCP Audit] restart_service denied: requireApproval is enabled but running headless.\n`);
-        return false;
-      }
       const s = data.services.find(x => x.id === id);
       if (!s) return false;
-      await serviceManager.stopService(id);
-      return serviceManager.startService(s);
+      return serviceManager.restartService(s);
     },
     getLogs: async (id) => {
       return serviceManager.getLogs(id);
     },
     addService: async (serviceData) => {
-      const data = serviceManager.loadData();
-      if (data.mcpRequireApproval) {
-        process.stderr.write(`[MCP Audit] add_service denied: requireApproval is enabled but running headless.\n`);
-        return null;
-      }
-      if (data.services.some(s => s.name === serviceData.name && s.project === serviceData.project)) {
-        return null;
-      }
-      const newService = {
-        id: serviceManager.generateServiceId(data.services),
-        name: serviceData.name,
-        project: serviceData.project,
-        cmd: serviceData.cmd,
-        dir: serviceData.dir,
-        url: serviceData.localUrl || '',
-        localUrl: serviceData.localUrl || '',
-        networkUrl: '',
-        status: 'stopped',
-        color: '#CCFF00'
-      };
-      data.services.push(newService);
-      serviceManager.saveData(data, `Add service ${serviceData.name}`);
-      return newService;
+      return serviceManager.addService(serviceData);
     },
     deleteService: async (id) => {
-      const data = serviceManager.loadData();
-      if (data.mcpRequireApproval) {
-        process.stderr.write(`[MCP Audit] delete_service denied: requireApproval is enabled but running headless.\n`);
-        return;
-      }
-      const s = data.services.find(x => x.id === id);
-      if (!s) return;
-      await serviceManager.stopService(id);
-      data.services = data.services.filter(x => x.id !== id);
-      serviceManager.saveData(data, `Delete service ${s.name}`);
+      await serviceManager.deleteService(id);
     }
   };
 

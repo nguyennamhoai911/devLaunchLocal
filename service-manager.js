@@ -22,8 +22,7 @@ class ServiceManager extends EventEmitter {
         if (!data.projects) data.projects = {};
         if (!data.projectOrder) data.projectOrder = [];
         if (!data.mcpPort) data.mcpPort = 20263;
-        if (data.mcpEnabled === undefined) data.mcpEnabled = true;
-        if (data.mcpRequireApproval === undefined) data.mcpRequireApproval = false;
+        if (data.mcpEnabled === undefined) data.mcpEnabled = false; // secure default: false
         return data;
       }
     } catch (e) {
@@ -35,15 +34,19 @@ class ServiceManager extends EventEmitter {
       projectOrder: [], 
       backupDir: null,
       mcpPort: 20263,
-      mcpEnabled: true,
-      mcpRequireApproval: false
+      mcpEnabled: false
     };
   }
 
-  saveData(data, desc = 'Auto update', skipBackup = false) {
+  saveData(newData, desc = 'Auto update', skipBackup = false) {
     try {
-      fs.writeFileSync(this.dataFile, JSON.stringify(data, null, 2), 'utf-8');
-      this.emit('services-updated', data);
+      const existing = this.loadData();
+      const merged = {
+        ...existing,
+        ...newData
+      };
+      fs.writeFileSync(this.dataFile, JSON.stringify(merged, null, 2), 'utf-8');
+      this.emit('services-updated', merged);
 
       if (!skipBackup && data.backupDir && fs.existsSync(data.backupDir)) {
         try {
@@ -282,6 +285,43 @@ class ServiceManager extends EventEmitter {
         resolve();
       }, 1200);
     });
+  }
+
+  async restartService(service) {
+    await this.stopService(service.id);
+    return this.startService(service);
+  }
+
+  addService(serviceData) {
+    const data = this.loadData();
+    if (data.services.some(s => s.name === serviceData.name && s.project === serviceData.project)) {
+      return null;
+    }
+    const newService = {
+      id: this.generateServiceId(data.services),
+      name: serviceData.name,
+      project: serviceData.project,
+      cmd: serviceData.cmd,
+      dir: serviceData.dir,
+      url: serviceData.localUrl || '',
+      localUrl: serviceData.localUrl || '',
+      networkUrl: '',
+      status: 'stopped',
+      color: '#CCFF00'
+    };
+    data.services.push(newService);
+    this.saveData(data, `Add service ${serviceData.name}`);
+    return newService;
+  }
+
+  async deleteService(id) {
+    const data = this.loadData();
+    const s = data.services.find(x => x.id === id);
+    if (!s) return false;
+    await this.stopService(id);
+    data.services = data.services.filter(x => x.id !== id);
+    this.saveData(data, `Delete service ${s.name}`);
+    return true;
   }
 
   async shutdown() {

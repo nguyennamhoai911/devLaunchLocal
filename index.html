@@ -165,16 +165,14 @@
         </label>
         <span id="mcpClientsText" class="text-[9px] font-mono text-green-400 ml-auto hidden">0 clients</span>
       </div>
-      <div class="flex items-center justify-between gap-2 px-1 text-[10px] text-[#78787B]">
-        <span>Require Approval:</span>
-        <label class="relative inline-flex items-center cursor-pointer select-none">
-          <input type="checkbox" id="mcpApprovalToggle" onchange="saveMcpSettings()" class="sr-only peer">
-          <div class="w-7 h-4 bg-[#3A3840] border border-[#484955]/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-[#78787B] peer-checked:after:bg-[#CCFF00] after:rounded-full after:h-2 after:w-2 after:transition-all peer-checked:bg-[#484955]/50 peer-checked:border-[#CCFF00]/40"></div>
-        </label>
-      </div>
       <div id="mcpConfigRow" class="flex items-center justify-between gap-2 px-1 text-[10px] text-[#78787B]">
         <span>Port:</span>
         <input id="mcpPortInput" type="number" min="1024" max="65535" value="20263" onchange="saveMcpSettings()" class="w-16 bg-[#1e1e1e] border border-[#484955]/40 rounded px-1.5 py-0.5 text-center text-xs font-mono text-[#DDDFDE] outline-none focus:border-[#78787B] transition">
+      </div>
+      <div class="px-1 pt-0.5">
+        <button onclick="copyMcpSseConfig()" class="w-full py-1.5 text-[10px] rounded-md border border-[#484955]/50 text-[#78787B] hover:bg-[#3A3840] hover:text-[#DDDFDE] transition-all flex items-center justify-center gap-1.5" id="copyMcpBtn">
+          <i data-lucide="copy" class="h-3 w-3"></i> Copy SSE Config
+        </button>
       </div>
     </div>
   </div>
@@ -344,31 +342,7 @@
   </div>
 </div>
 
-<!-- MCP Approval Modal -->
-<div id="mcpApprovalModal" class="hidden fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center anim-fade">
-  <div class="bg-[#3A3840] border-2 border-amber-500/40 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden anim-scale">
-    <div class="flex items-center gap-3 px-6 py-4 border-b border-[#484955]/60 bg-amber-500/10">
-      <i data-lucide="shield-alert" class="h-5 w-5 text-amber-400"></i>
-      <h2 class="font-bold text-[#DDDFDE] text-sm uppercase tracking-wider">MCP Security Prompt</h2>
-    </div>
-    <div class="p-6 space-y-4">
-      <p class="text-xs text-[#78787B] leading-relaxed">An external AI client is requesting local execution:</p>
-      <div class="bg-[#1e1e1e]/60 p-3 rounded-lg border border-[#484955]/50 font-mono space-y-1.5 text-xs">
-        <div><span class="text-[#78787B]">Client:</span> <span class="text-blue-400" id="mcpApproveClient">-</span></div>
-        <div><span class="text-[#78787B]">Action:</span> <span class="text-amber-400 font-bold" id="mcpApproveAction">-</span></div>
-        <div><span class="text-[#78787B]">Target:</span> <span class="text-[#DDDFDE]" id="mcpApproveTarget">-</span></div>
-      </div>
-      <p class="text-[10px] text-rose-400 leading-normal flex items-start gap-1.5">
-        <i data-lucide="info" class="h-3.5 w-3.5 shrink-0 mt-0.5"></i>
-        <span>Starting/stopping scripts can execute arbitrary local shell commands. Confirm only if trusted.</span>
-      </p>
-    </div>
-    <div class="flex justify-end gap-3 px-6 py-4 border-t border-[#484955]/60 bg-[#1e1e1e]/20">
-      <button onclick="submitMcpApproval(false)" class="px-4 py-2 rounded-lg border border-[#484955]/60 text-xs font-semibold text-[#78787B] hover:text-rose-400 hover:bg-[#484955]/40 transition">Deny</button>
-      <button onclick="submitMcpApproval(true)" class="px-5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-900 text-xs font-bold transition shadow-lg shadow-amber-500/20">Allow Action</button>
-    </div>
-  </div>
-</div>
+
 
 <!-- Toast -->
 <div id="toast" class="hidden fixed bottom-5 right-5 z-[100] flex items-center gap-2.5 bg-[#3A3840] text-[#DDDFDE] text-xs font-medium px-4 py-3 rounded-xl shadow-xl border border-[#484955]">
@@ -448,7 +422,6 @@ async function init() {
       S.projectOrder = data.projectOrder || [];
       render();
     });
-    window.api.onMcpApproveRequest(data => showMcpApproval(data));
   } else {
     S.services=[
       {id:1,name:'Frontend Web',project:'Alpha Core',cmd:'npm run dev',dir:'C:/dev/alpha/web',localUrl:'http://localhost:3000',networkUrl:'http://192.168.1.5:3000',status:'running',color:'#6366f1'},
@@ -463,7 +436,6 @@ async function init() {
 function updateMcpUi(config) {
   if (!config) return;
   document.getElementById('mcpEnableToggle').checked = !!config.enabled;
-  document.getElementById('mcpApprovalToggle').checked = !!config.requireApproval;
   document.getElementById('mcpPortInput').value = config.port || 20263;
 
   const dot = document.getElementById('mcpStatusDot');
@@ -487,31 +459,30 @@ function updateMcpUi(config) {
 async function saveMcpSettings() {
   if (!window.api) return;
   const enabled = document.getElementById('mcpEnableToggle').checked;
-  const requireApproval = document.getElementById('mcpApprovalToggle').checked;
   const port = parseInt(document.getElementById('mcpPortInput').value) || 20263;
 
-  await window.api.saveMcpConfig({ enabled, port, requireApproval });
+  await window.api.saveMcpConfig({ enabled, port });
 }
 
-let activeApprovalId = null;
-function showMcpApproval(data) {
-  activeApprovalId = data.approvalId;
-  document.getElementById('mcpApproveClient').textContent = data.client || 'Unknown';
-  document.getElementById('mcpApproveAction').textContent = data.action || 'Unknown';
-  document.getElementById('mcpApproveTarget').textContent = data.target || 'Unknown';
-  
-  const modal = document.getElementById('mcpApprovalModal');
-  modal.classList.remove('hidden');
-  lucide.createIcons();
-}
-
-async function submitMcpApproval(approved) {
-  if (activeApprovalId === null) return;
-  document.getElementById('mcpApprovalModal').classList.add('hidden');
-  if (window.api) {
-    await window.api.replyMcpApprove(activeApprovalId, approved);
-  }
-  activeApprovalId = null;
+function copyMcpSseConfig() {
+  const port = parseInt(document.getElementById('mcpPortInput').value) || 20263;
+  const config = {
+    mcpServers: {
+      devlaunch: {
+        url: `http://localhost:${port}/sse`
+      }
+    }
+  };
+  navigator.clipboard.writeText(JSON.stringify(config, null, 2)).then(() => {
+    const btn = document.getElementById('copyMcpBtn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = `<i data-lucide="check" class="h-3 w-3 text-green-400"></i> Copied!`;
+    lucide.createIcons();
+    setTimeout(() => {
+      btn.innerHTML = originalText;
+      lucide.createIcons();
+    }, 2000);
+  });
 }
 
 function persist(desc = 'Auto_Update', skipBackup = false) { 

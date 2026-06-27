@@ -24,8 +24,6 @@ contextBridge.exposeInMainWorld('api', {
   loadMcpConfig: () => ipcRenderer.invoke('load-mcp-config'),
   saveMcpConfig: (config) => ipcRenderer.invoke('save-mcp-config', config),
   onMcpStatusChange: (cb) => ipcRenderer.on('mcp-status-change', (_, d) => cb(d)),
-  onServicesUpdated: (cb) => ipcRenderer.on('services-updated', (_, d) => cb(d)),
-  onMcpApproveRequest: (cb) => ipcRenderer.on('mcp-approve-request', (_, d) => cb(d)),
-  replyMcpApprove: (approvalId, approved) => ipcRenderer.invoke('mcp-approve-reply', { approvalId, approved })
+  onServicesUpdated: (cb) => ipcRenderer.on('services-updated', (_, d) => cb(d))
 });
 

@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage } = require('electron');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
@@ -287,15 +288,20 @@ function runGuiMode() {
       });
 
       createWindow();
-      startMcpTcpServer();
+      startMcpHttpServer();
     });
 
     app.on('window-all-closed', () => app.quit());
   }
 }
 
-// ── MCP TCP Server (Internal Bridge) ──────────────────────────────────────────
-function startMcpTcpServer() {
+// ── MCP HTTP + SSE Server (Streamable HTTP Transport) ──────────────────────────
+const http = require('http');
+
+let sseServer = null;
+let sseSessions = new Map();
+
+function startMcpHttpServer() {
   const data = serviceManager.loadData();
   if (!data.mcpEnabled) {
     updateMcpStatusFrontend();
@@ -303,53 +309,101 @@ function startMcpTcpServer() {
   }
 
   const port = data.mcpPort || 20263;
-  tcpServer = net.createServer((socket) => {
-    mcpClients.push(socket);
-    updateMcpStatusFrontend();
+  sseServer = http.createServer((req, res) => {
+    const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    const pathname = parsedUrl.pathname;
 
-    const clientAddr = `${socket.remoteAddress}:${socket.remotePort}`;
-    console.error(`[MCP Audit] Client connected from ${clientAddr}`);
+    const headers = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
 
-    const rl = readline.createInterface({ input: socket });
-    rl.on('line', async (line) => {
-      try {
-        const req = JSON.parse(line);
-        const context = createMcpContext(clientAddr);
-        const resp = await mcpHandler.handleMessage(req, context);
-        if (resp) {
-          socket.write(JSON.stringify(resp) + '\n');
-        }
-      } catch (err) {
-        console.error(`[MCP Error] Failed processing TCP message: ${err.message}`);
-      }
-    });
+    if (req.method === 'OPTIONS') {
+      res.writeHead(200, headers);
+      res.end();
+      return;
+    }
 
-    socket.on('error', () => {});
-    socket.on('close', () => {
-      mcpClients = mcpClients.filter(c => c !== socket);
+    if (pathname === '/sse' && req.method === 'GET') {
+      const sessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      
+      res.writeHead(200, {
+        ...headers,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+
+      res.write(': keepalive\n\n');
+      res.write(`event: endpoint\ndata: /message?sessionId=${sessionId}\n\n`);
+
+      sseSessions.set(sessionId, res);
       updateMcpStatusFrontend();
-      console.error(`[MCP Audit] Client disconnected: ${clientAddr}`);
-    });
+      console.error(`[MCP Audit] SSE connection established: session ${sessionId} (IP: ${req.socket.remoteAddress})`);
+
+      req.on('close', () => {
+        sseSessions.delete(sessionId);
+        updateMcpStatusFrontend();
+        console.error(`[MCP Audit] SSE connection closed: session ${sessionId}`);
+      });
+      return;
+    }
+
+    if (pathname === '/message' && req.method === 'POST') {
+      const sessionId = parsedUrl.searchParams.get('sessionId');
+      const clientRes = sseSessions.get(sessionId);
+
+      if (!clientRes) {
+        res.writeHead(400, { 'Content-Type': 'text/plain', ...headers });
+        res.end('Session not found or expired');
+        return;
+      }
+
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', async () => {
+        try {
+          const payload = JSON.parse(body);
+          const context = createMcpContext(req.socket.remoteAddress);
+          const resp = await mcpHandler.handleMessage(payload, context);
+          if (resp) {
+            clientRes.write(`event: message\ndata: ${JSON.stringify(resp)}\n\n`);
+          }
+          res.writeHead(200, { 'Content-Type': 'text/plain', ...headers });
+          res.end('OK');
+        } catch (err) {
+          res.writeHead(400, { 'Content-Type': 'text/plain', ...headers });
+          res.end(`Invalid JSON payload: ${err.message}`);
+        }
+      });
+      return;
+    }
+
+    res.writeHead(404, { 'Content-Type': 'text/plain', ...headers });
+    res.end('Not Found');
   });
 
-  tcpServer.listen(port, '127.0.0.1', () => {
-    console.error(`[MCP Server] Listening on 127.0.0.1:${port}`);
+  sseServer.listen(port, '127.0.0.1', () => {
+    console.error(`[MCP SSE Server] Listening on http://127.0.0.1:${port}/sse`);
     updateMcpStatusFrontend();
   });
 
-  tcpServer.on('error', (err) => {
-    console.error(`[MCP Server] TCP Error: ${err.message}`);
+  sseServer.on('error', (err) => {
+    console.error(`[MCP SSE Server] HTTP Error: ${err.message}`);
     updateMcpStatusFrontend();
   });
 }
 
-function stopMcpTcpServer() {
-  if (tcpServer) {
-    tcpServer.close();
-    tcpServer = null;
+function stopMcpHttpServer() {
+  if (sseServer) {
+    sseServer.close();
+    sseServer = null;
   }
-  mcpClients.forEach(c => c.destroy());
-  mcpClients = [];
+  for (const [sessionId, res] of sseSessions.entries()) {
+    try { res.end(); } catch (e) {}
+  }
+  sseSessions.clear();
   updateMcpStatusFrontend();
 }
 
@@ -359,42 +413,9 @@ function updateMcpStatusFrontend() {
     mainWindow.webContents.send('mcp-status-change', {
       enabled: data.mcpEnabled,
       port: data.mcpPort || 20263,
-      requireApproval: data.mcpRequireApproval,
-      clientsCount: mcpClients.length
+      clientsCount: sseSessions.size
     });
   }
-}
-
-// ── MCP Approval Flow ─────────────────────────────────────────────────────────
-function requestApproval(clientName, action, targetName) {
-  const data = serviceManager.loadData();
-  if (!data.mcpRequireApproval) {
-    return Promise.resolve(true);
-  }
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    return Promise.resolve(false);
-  }
-
-  const approvalId = nextApprovalId++;
-  return new Promise((resolve) => {
-    console.error(`[MCP Audit] Client ${clientName} requested sensitive action: ${action} on ${targetName}. Prompting user...`);
-    mainWindow.webContents.send('mcp-approve-request', {
-      approvalId,
-      client: clientName,
-      action,
-      target: targetName
-    });
-
-    const timer = setTimeout(() => {
-      if (pendingApprovals.has(approvalId)) {
-        pendingApprovals.delete(approvalId);
-        console.error(`[MCP Audit] Approval ID ${approvalId} timed out. Request denied automatically.`);
-        resolve(false);
-      }
-    }, 60000);
-
-    pendingApprovals.set(approvalId, { resolve, timer });
-  });
 }
 
 function createMcpContext(clientName) {
@@ -407,64 +428,36 @@ function createMcpContext(clientName) {
       const data = serviceManager.loadData();
       const s = data.services.find(x => x.id === id);
       if (!s) return false;
-      const approved = await requestApproval(clientName, 'Start Service', s.name);
-      if (!approved) return false;
+      console.error(`[MCP Audit] Client ${clientName} starting service: ${s.name}`);
       return serviceManager.startService(s);
     },
     stopService: async (id) => {
       const data = serviceManager.loadData();
       const s = data.services.find(x => x.id === id);
       if (!s) return;
-      const approved = await requestApproval(clientName, 'Stop Service', s.name);
-      if (!approved) return;
+      console.error(`[MCP Audit] Client ${clientName} stopping service: ${s.name}`);
       await serviceManager.stopService(id);
     },
     restartService: async (id) => {
       const data = serviceManager.loadData();
       const s = data.services.find(x => x.id === id);
       if (!s) return false;
-      const approved = await requestApproval(clientName, 'Restart Service', s.name);
-      if (!approved) return false;
-      await serviceManager.stopService(id);
-      return serviceManager.startService(s);
+      console.error(`[MCP Audit] Client ${clientName} restarting service: ${s.name}`);
+      return serviceManager.restartService(s);
     },
     getLogs: async (id) => {
       return serviceManager.getLogs(id);
     },
     addService: async (serviceData) => {
-      const data = serviceManager.loadData();
-      const approved = await requestApproval(clientName, 'Add Service', serviceData.name);
-      if (!approved) return null;
-
-      if (data.services.some(s => s.name === serviceData.name && s.project === serviceData.project)) {
-        return null;
-      }
-      const newService = {
-        id: serviceManager.generateServiceId(data.services),
-        name: serviceData.name,
-        project: serviceData.project,
-        cmd: serviceData.cmd,
-        dir: serviceData.dir,
-        url: serviceData.localUrl || '',
-        localUrl: serviceData.localUrl || '',
-        networkUrl: '',
-        status: 'stopped',
-        color: '#CCFF00'
-      };
-      data.services.push(newService);
-      serviceManager.saveData(data, `Add service ${serviceData.name}`);
-      return newService;
+      console.error(`[MCP Audit] Client ${clientName} adding service: ${serviceData.name}`);
+      return serviceManager.addService(serviceData);
     },
     deleteService: async (id) => {
       const data = serviceManager.loadData();
       const s = data.services.find(x => x.id === id);
       if (!s) return;
-      const approved = await requestApproval(clientName, 'Delete Service', s.name);
-      if (!approved) return;
-
-      await serviceManager.stopService(id);
-      data.services = data.services.filter(x => x.id !== id);
-      serviceManager.saveData(data, `Delete service ${s.name}`);
+      console.error(`[MCP Audit] Client ${clientName} deleting service: ${s.name}`);
+      await serviceManager.deleteService(id);
     }
   };
 }
@@ -519,12 +512,12 @@ function createWindow() {
       });
 
       if (choice === 0) {
-        stopMcpTcpServer();
+        stopMcpHttpServer();
         await serviceManager.shutdown();
         app.exit();
       }
     } else {
-      stopMcpTcpServer();
+      stopMcpHttpServer();
       await serviceManager.shutdown();
     }
   });
@@ -590,38 +583,26 @@ ipcMain.handle('load-mcp-config', () => {
   return {
     enabled: data.mcpEnabled,
     port: data.mcpPort || 20263,
-    requireApproval: data.mcpRequireApproval,
-    clientsCount: mcpClients.length
+    clientsCount: sseSessions.size
   };
 });
 
-ipcMain.handle('save-mcp-config', (_, { enabled, port, requireApproval }) => {
+ipcMain.handle('save-mcp-config', (_, { enabled, port }) => {
   const data = serviceManager.loadData();
   const mcpChanged = data.mcpEnabled !== enabled || data.mcpPort !== port;
 
   data.mcpEnabled = enabled;
   data.mcpPort = Number(port) || 20263;
-  data.mcpRequireApproval = requireApproval;
 
   serviceManager.saveData(data, 'Save MCP Config');
 
   if (mcpChanged) {
-    stopMcpTcpServer();
+    stopMcpHttpServer();
     if (enabled) {
-      startMcpTcpServer();
+      startMcpHttpServer();
     }
   } else {
     updateMcpStatusFrontend();
-  }
-  return { ok: true };
-});
-
-ipcMain.handle('mcp-approve-reply', (_, { approvalId, approved }) => {
-  const pending = pendingApprovals.get(approvalId);
-  if (pending) {
-    clearTimeout(pending.timer);
-    pendingApprovals.delete(approvalId);
-    pending.resolve(approved);
   }
   return { ok: true };
 });
