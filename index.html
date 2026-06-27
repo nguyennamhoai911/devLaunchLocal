@@ -136,45 +136,10 @@
   </nav>
 
   <!-- Sidebar Footer -->
-  <div class="border-t border-[#484955]/30 p-3 flex flex-col gap-2 shrink-0">
-    <div class="flex items-center justify-between text-[10px] text-[#78787B] px-1">
-      <span class="font-semibold uppercase tracking-wider">Auto Backup Dir</span>
-      <button onclick="pickAutoBackupDir()" class="hover:text-[#DDDFDE] transition" title="Choose Directory"><i data-lucide="folder-search" class="h-3.5 w-3.5"></i></button>
-    </div>
-    <div id="backupPathDisplay" class="text-[10px] font-mono text-[#484955] truncate px-1" title="Not set">Not set</div>
-    <div class="flex gap-2 mt-1">
-      <button onclick="doImport()" class="flex-1 py-1.5 text-xs rounded-md border border-[#484955]/50 text-[#78787B] hover:bg-[#3A3840] hover:text-[#DDDFDE] transition-all flex items-center justify-center gap-1.5">
-        <i data-lucide="upload" class="h-3 w-3"></i> Import
-      </button>
-      <button onclick="doExport()" class="flex-1 py-1.5 text-xs rounded-md border border-[#484955]/50 text-[#78787B] hover:bg-[#3A3840] hover:text-[#DDDFDE] transition-all flex items-center justify-center gap-1.5">
-        <i data-lucide="download" class="h-3 w-3"></i> Backup
-      </button>
-    </div>
-
-    <!-- MCP Server Section -->
-    <div class="border-t border-[#484955]/20 pt-2.5 mt-1.5 space-y-2">
-      <div class="flex items-center justify-between text-[10px] text-[#78787B] px-1">
-        <span class="font-semibold uppercase tracking-wider">MCP Server</span>
-        <div id="mcpStatusDot" class="h-2 w-2 rounded-full bg-slate-500" title="Checking status..."></div>
-      </div>
-      <div class="flex items-center gap-2 px-1">
-        <label class="relative inline-flex items-center cursor-pointer select-none">
-          <input type="checkbox" id="mcpEnableToggle" onchange="saveMcpSettings()" class="sr-only peer">
-          <div class="w-7 h-4 bg-[#3A3840] border border-[#484955]/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-[#78787B] peer-checked:after:bg-[#CCFF00] after:rounded-full after:h-2 after:w-2 after:transition-all peer-checked:bg-[#484955]/50 peer-checked:border-[#CCFF00]/40"></div>
-          <span class="text-[10px] ml-1.5 text-[#78787B]" id="mcpStatusText">Disabled</span>
-        </label>
-        <span id="mcpClientsText" class="text-[9px] font-mono text-green-400 ml-auto hidden">0 clients</span>
-      </div>
-      <div id="mcpConfigRow" class="flex items-center justify-between gap-2 px-1 text-[10px] text-[#78787B]">
-        <span>Port:</span>
-        <input id="mcpPortInput" type="number" min="1024" max="65535" value="20263" onchange="saveMcpSettings()" class="w-16 bg-[#1e1e1e] border border-[#484955]/40 rounded px-1.5 py-0.5 text-center text-xs font-mono text-[#DDDFDE] outline-none focus:border-[#78787B] transition">
-      </div>
-      <div class="px-1 pt-0.5">
-        <button onclick="copyMcpSseConfig()" class="w-full py-1.5 text-[10px] rounded-md border border-[#484955]/50 text-[#78787B] hover:bg-[#3A3840] hover:text-[#DDDFDE] transition-all flex items-center justify-center gap-1.5" id="copyMcpBtn">
-          <i data-lucide="copy" class="h-3 w-3"></i> Copy SSE Config
-        </button>
-      </div>
-    </div>
+  <div class="border-t border-[#484955]/30 p-2.5 shrink-0">
+    <button onclick="openSettingsModal()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-[#3A3840] text-[#78787B] hover:text-[#DDDFDE] border border-transparent">
+      <i data-lucide="settings" class="h-4 w-4 shrink-0 transition-colors"></i> Settings
+    </button>
   </div>
 </aside>
 
@@ -338,6 +303,80 @@
     <div class="flex justify-end gap-3 px-6 py-4 border-t border-[#484955]/60">
       <button onclick="closeProjModal()" class="px-5 py-2 rounded-lg border border-[#484955]/60 text-sm text-[#78787B] hover:text-[#DDDFDE] hover:bg-[#484955]/40 transition">Cancel</button>
       <button onclick="saveProject()" class="px-5 py-2 rounded-lg bg-[#484955] hover:bg-[#78787B] text-[#DDDFDE] text-sm font-semibold transition">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Settings Modal (DARK) -->
+<div id="settingsModal" class="hidden fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center anim-fade">
+  <div class="bg-[#3A3840] border border-[#484955] w-full max-w-md rounded-2xl shadow-2xl overflow-hidden anim-scale">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-[#484955]/60">
+      <h2 class="font-bold text-[#DDDFDE] text-base flex items-center gap-2">
+        <i data-lucide="settings" class="h-4.5 w-4.5 text-[#CCFF00]"></i> App Settings
+      </h2>
+      <button onclick="closeSettingsModal()" class="h-8 w-8 rounded-lg hover:bg-[#484955] flex items-center justify-center text-[#78787B] hover:text-[#DDDFDE] transition">
+        <i data-lucide="x" class="h-4 w-4"></i>
+      </button>
+    </div>
+    
+    <div class="p-6 space-y-6">
+      <!-- Section: Auto Backup -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between text-[11px] font-semibold text-[#78787B] uppercase tracking-wider">
+          <span>Auto Backup Dir</span>
+          <button onclick="pickAutoBackupDir()" class="text-[#CCFF00] hover:text-white transition flex items-center gap-1 text-[10px]" title="Choose Directory">
+            <i data-lucide="folder-search" class="h-3.5 w-3.5"></i> Change
+          </button>
+        </div>
+        <div class="bg-[#1e1e1e] border border-[#484955]/60 rounded-lg px-3 py-2 text-xs font-mono text-[#DDDFDE] truncate" id="backupPathDisplay" title="Not set">
+          Not set
+        </div>
+        <div class="flex gap-2">
+          <button onclick="doImport()" class="flex-1 py-2 text-xs rounded-lg border border-[#484955]/50 text-[#78787B] hover:bg-[#484955]/40 hover:text-[#DDDFDE] transition flex items-center justify-center gap-1.5">
+            <i data-lucide="upload" class="h-3.5 w-3.5"></i> Import config
+          </button>
+          <button onclick="doExport()" class="flex-1 py-2 text-xs rounded-lg border border-[#484955]/50 text-[#78787B] hover:bg-[#484955]/40 hover:text-[#DDDFDE] transition flex items-center justify-center gap-1.5">
+            <i data-lucide="download" class="h-3.5 w-3.5"></i> Backup config
+          </button>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="border-t border-[#484955]/30"></div>
+
+      <!-- Section: MCP Server -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between text-[11px] font-semibold text-[#78787B] uppercase tracking-wider">
+          <span>MCP Server</span>
+          <div class="flex items-center gap-1.5">
+            <div id="mcpStatusDot" class="h-2 w-2 rounded-full bg-slate-500" title="Checking status..."></div>
+            <span id="mcpClientsText" class="text-[9px] font-mono text-green-400 hidden">0 clients</span>
+          </div>
+        </div>
+        <div class="bg-[#1e1e1e] border border-[#484955]/60 rounded-lg p-3 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-[#78787B] font-medium">Server Enable:</span>
+            <label class="relative inline-flex items-center cursor-pointer select-none">
+              <input type="checkbox" id="mcpEnableToggle" onchange="saveMcpSettings()" class="sr-only peer">
+              <div class="w-9 h-5 bg-[#3A3840] border border-[#484955]/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[#78787B] peer-checked:after:bg-[#CCFF00] after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-[#484955]/50 peer-checked:border-[#CCFF00]/40"></div>
+              <span class="text-xs ml-2 text-[#78787B] font-semibold" id="mcpStatusText">Disabled</span>
+            </label>
+          </div>
+          <div id="mcpConfigRow" class="flex items-center justify-between">
+            <span class="text-xs text-[#78787B] font-medium">Server Port:</span>
+            <input id="mcpPortInput" type="number" min="1024" max="65535" value="20263" onchange="saveMcpSettings()" class="w-20 bg-[#252526] border border-[#484955]/60 rounded px-2 py-0.5 text-center text-xs font-mono text-[#DDDFDE] outline-none focus:border-[#78787B] transition">
+          </div>
+        </div>
+        <button onclick="copyMcpSseConfig()" class="w-full py-2 text-xs rounded-lg border border-[#484955]/50 text-[#78787B] hover:bg-[#484955]/40 hover:text-[#DDDFDE] transition flex items-center justify-center gap-1.5" id="copyMcpBtn">
+          <i data-lucide="copy" class="h-3.5 w-3.5"></i> Copy SSE Config
+        </button>
+      </div>
+    </div>
+    
+    <div class="flex justify-end px-6 py-4 border-t border-[#484955]/60 bg-[#1e1e1e]/30">
+      <button onclick="closeSettingsModal()" class="px-5 py-2 rounded-lg bg-[#484955] hover:bg-[#78787B] text-[#DDDFDE] text-sm font-semibold transition active:scale-95">Close</button>
     </div>
   </div>
 </div>
@@ -1137,6 +1176,15 @@ function saveProject() {
   persist(); closeProjModal(); toast(`Settings for ${S.editProj} saved`);
 }
 
+// Settings Modal Logic
+function openSettingsModal() {
+  document.getElementById('settingsModal').classList.remove('hidden');
+  lucide.createIcons();
+}
+function closeSettingsModal() {
+  document.getElementById('settingsModal').classList.add('hidden');
+}
+
 // ─────────────────────────────────────────
 // BACKUP
 // ─────────────────────────────────────────
@@ -1196,7 +1244,7 @@ function copyAllLogs() {
 
 // Keyboard shortcuts
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape') { closeModal(); closeLog(); }
+  if(e.key==='Escape') { closeModal(); closeLog(); closeProjModal(); closeSettingsModal(); }
   if(e.key==='Enter'&&document.getElementById('modalBackdrop').classList.contains('hidden')===false) {
     if(e.target.tagName!=='BUTTON') saveService();
   }

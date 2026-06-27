@@ -84,6 +84,32 @@ const TOOLS = [
       },
       additionalProperties: false
     }
+  },
+  {
+    name: 'set_project_path',
+    description: 'Set or update the root directory path of a project.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: 'The name of the project.' },
+        path: { type: 'string', description: 'The absolute root directory path of the project.' }
+      },
+      required: ['project', 'path'],
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'set_project_logo',
+    description: 'Set or update the logo icon of a project. Can be a base64 data URL, a web URL, or a text letter/string.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: 'The name of the project.' },
+        logo: { type: 'string', description: 'The logo image (base64 data URL starting with data:image/, or a web URL, or a text letter. Set null/empty string to reset to default).' }
+      },
+      required: ['project', 'logo'],
+      additionalProperties: false
+    }
   }
 ];
 
@@ -301,6 +327,26 @@ class McpHandler {
         }
         await context.deleteService(service.id);
         return this.toolSuccess(id, `Service '${service.name}' deleted successfully.`);
+      }
+
+      case 'set_project_path': {
+        const { project, path } = args;
+        const success = await context.setProjectPath(project, path);
+        if (success) {
+          return this.toolSuccess(id, `Project path for '${project}' set to '${path}' successfully.`);
+        } else {
+          return this.toolError(id, `Failed to set project path.`);
+        }
+      }
+
+      case 'set_project_logo': {
+        const { project, logo } = args;
+        const success = await context.setProjectLogo(project, logo);
+        if (success) {
+          return this.toolSuccess(id, `Project logo for '${project}' updated successfully.`);
+        } else {
+          return this.toolError(id, `Failed to update project logo.`);
+        }
       }
 
       default:

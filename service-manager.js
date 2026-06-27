@@ -4,10 +4,10 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 class ServiceManager extends EventEmitter {
-  constructor(userDataPath) {
+  constructor(userDataPath, dataFileName = 'services.json') {
     super();
     this.userDataPath = userDataPath;
-    this.dataFile = path.join(userDataPath, 'services.json');
+    this.dataFile = path.join(userDataPath, dataFileName);
     this.processes = {}; // serviceId -> { proc, logs[] }
     this.pids = {};      // serviceId -> lastKnownPid
     this.isQuitting = false;
@@ -317,6 +317,15 @@ class ServiceManager extends EventEmitter {
       color: '#CCFF00'
     };
     data.services.push(newService);
+
+    // Automatically set project path if not present
+    if (!data.projects) data.projects = {};
+    if (!data.projects[serviceData.project]) {
+      data.projects[serviceData.project] = {
+        path: serviceData.dir
+      };
+    }
+
     this.saveData(data, `Add service ${serviceData.name}`);
     return newService;
   }

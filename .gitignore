@@ -8,3 +8,5 @@ Thumbs.db
 backup/
 scratch/
 tests/out.txt
+services-demo.json
+backup_demo/

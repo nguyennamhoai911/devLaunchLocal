@@ -207,6 +207,14 @@ function runStandaloneHeadless() {
     },
     deleteService: async (id) => {
       await serviceManager.deleteService(id);
+    },
+    setProjectPath: async (project, path) => {
+      const data = serviceManager.loadData();
+      if (!data.projects) data.projects = {};
+      if (!data.projects[project]) data.projects[project] = {};
+      data.projects[project].path = path;
+      serviceManager.saveData(data, `Set project path for ${project}`);
+      return true;
     }
   };
 

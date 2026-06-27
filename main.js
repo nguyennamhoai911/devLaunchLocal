@@ -30,8 +30,11 @@ function isJsonRpcPayload(chunk) {
 function runMcpCli() {
   const http = require('http');
   process.stderr.write('[DEBUG] runMcpCli started\n');
+  const isDev = !app.isPackaged;
   const userDataPath = app.getPath('userData');
-  const serviceManager = new ServiceManager(userDataPath);
+  const managerPath = isDev ? __dirname : userDataPath;
+  const dataFileName = isDev ? 'services-demo.json' : 'services.json';
+  const serviceManager = new ServiceManager(managerPath, dataFileName);
   const data = serviceManager.loadData();
   const port = data.mcpPort || 20263;
 
@@ -266,6 +269,24 @@ function runStandaloneHeadless(serviceManager) {
       await serviceManager.stopService(id);
       data.services = data.services.filter(x => x.id !== id);
       serviceManager.saveData(data, `Delete service ${s.name}`);
+    },
+    setProjectPath: async (project, path) => {
+      const data = serviceManager.loadData();
+      if (!data.projects) data.projects = {};
+      if (!data.projects[project]) data.projects[project] = {};
+      data.projects[project].path = path;
+      process.stderr.write(`[MCP Audit] Headless client setting project path for: ${project}\n`);
+      serviceManager.saveData(data, `Set project path for ${project}`);
+      return true;
+    },
+    setProjectLogo: async (project, logo) => {
+      const data = serviceManager.loadData();
+      if (!data.projects) data.projects = {};
+      if (!data.projects[project]) data.projects[project] = {};
+      data.projects[project].logo = logo;
+      process.stderr.write(`[MCP Audit] Headless client setting project logo for: ${project}\n`);
+      serviceManager.saveData(data, `Set project logo for ${project}`);
+      return true;
     }
   };
 
@@ -316,9 +337,36 @@ function runGuiMode() {
         mainWindow.focus();
       }
     });
-
     app.whenReady().then(() => {
-      serviceManager = new ServiceManager(app.getPath('userData'));
+      const isDev = !app.isPackaged;
+      const userDataPath = app.getPath('userData');
+      let managerPath = userDataPath;
+      let dataFileName = 'services.json';
+
+      if (isDev) {
+        managerPath = __dirname;
+        dataFileName = 'services-demo.json';
+        const prodFile = path.join(userDataPath, 'services.json');
+        const devFile = path.join(managerPath, dataFileName);
+        if (!fs.existsSync(devFile)) {
+          try {
+            if (fs.existsSync(prodFile)) {
+              fs.copyFileSync(prodFile, devFile);
+              // Update backupDir in the copied dev config to the demo path
+              const content = JSON.parse(fs.readFileSync(devFile, 'utf8'));
+              content.backupDir = 'c:\\code\\c2026-03-09-devLaunch\\backup_demo';
+              fs.writeFileSync(devFile, JSON.stringify(content, null, 2), 'utf8');
+              console.log('[Dev] Copied services.json to services-demo.json and set demo backupDir');
+            } else {
+              console.log('[Dev] Production services.json not found, starting with fresh services-demo.json');
+            }
+          } catch (err) {
+            console.error('[Dev] Failed to copy services.json:', err);
+          }
+        }
+      }
+
+      serviceManager = new ServiceManager(managerPath, dataFileName);
 
       // Event handlers to communicate with renderer process
       serviceManager.on('log', ({ id, line }) => {
@@ -530,6 +578,24 @@ function createMcpContext(clientName) {
       if (!s) return;
       console.error(`[MCP Audit] Client ${clientName} deleting service: ${s.name}`);
       await serviceManager.deleteService(id);
+    },
+    setProjectPath: async (project, path) => {
+      const data = serviceManager.loadData();
+      if (!data.projects) data.projects = {};
+      if (!data.projects[project]) data.projects[project] = {};
+      data.projects[project].path = path;
+      console.error(`[MCP Audit] Client ${clientName} setting project path for: ${project}`);
+      serviceManager.saveData(data, `Set project path for ${project}`);
+      return true;
+    },
+    setProjectLogo: async (project, logo) => {
+      const data = serviceManager.loadData();
+      if (!data.projects) data.projects = {};
+      if (!data.projects[project]) data.projects[project] = {};
+      data.projects[project].logo = logo;
+      console.error(`[MCP Audit] Client ${clientName} setting project logo for: ${project}`);
+      serviceManager.saveData(data, `Set project logo for ${project}`);
+      return true;
     }
   };
 }
