@@ -1,240 +1,475 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
+const net = require('net');
+const readline = require('readline');
+const ServiceManager = require('./service-manager');
+const McpHandler = require('./mcp-handler');
 
-// ── Data store ────────────────────────────────────────────────────────────────
-const DATA_FILE = path.join(app.getPath('userData'), 'services.json');
+// ── Check Stdio MCP Mode early ────────────────────────────────────────────────
+const isMcpMode = process.argv.includes('--mcp') || process.argv.includes('mcp');
 
-function loadData() {
+if (isMcpMode) {
+  runMcpCli();
+} else {
+  runGuiMode();
+}
+
+// ── Stdio MCP / Proxy Runner ──────────────────────────────────────────────────
+function isJsonRpcPayload(chunk) {
+  const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
   try {
-    if (fs.existsSync(DATA_FILE)) return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-  } catch (e) {}
-  return { services: [] };
+    const obj = JSON.parse(text.trim());
+    return obj && obj.jsonrpc === '2.0';
+  } catch {
+    return false;
+  }
 }
 
-function saveData(data, desc = 'Auto update', skipBackup = false) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
+function runMcpCli() {
+  process.stderr.write('[DEBUG] runMcpCli started\n');
+  const userDataPath = app.getPath('userData');
+  const serviceManager = new ServiceManager(userDataPath);
+  const data = serviceManager.loadData();
+  const port = data.mcpPort || 20263;
+
+  process.stderr.write(`[DEBUG] Attempting proxy connection to 127.0.0.1:${port}...\n`);
   
-  if (!skipBackup && data.backupDir && fs.existsSync(data.backupDir)) {
-    try {
-      const dateStr = new Date().toLocaleString('vi-VN', { 
-        year: 'numeric', month: '2-digit', day: '2-digit', 
-        hour: '2-digit', minute: '2-digit', second: '2-digit',
-        hour12: false
-      }).replace(/[/:]/g, '-').replace(', ', '_').replace(/ /g, '');
-      
-      let safeDesc = (desc || 'Auto update')
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-      if (safeDesc.length > 40) safeDesc = safeDesc.substring(0, 40);
-      
-      const filename = `backup_${dateStr}_${safeDesc}.json`;
-      const filepath = path.join(data.backupDir, filename);
-      fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
-
-      // Keep only the latest 20 backup files
-      const files = fs.readdirSync(data.backupDir);
-      const backupFiles = files
-        .filter(f => f.startsWith('backup_') && f.endsWith('.json'))
-        .map(f => {
-          const fp = path.join(data.backupDir, f);
-          try {
-            const stat = fs.statSync(fp);
-            return { name: f, path: fp, mtime: stat.mtimeMs };
-          } catch (err) {
-            return null;
-          }
-        })
-        .filter(Boolean);
-      
-      if (backupFiles.length > 20) {
-        backupFiles.sort((a, b) => b.mtime - a.mtime); // Newest first
-        const toDelete = backupFiles.slice(20);
-        for (const fileInfo of toDelete) {
-          try {
-            fs.unlinkSync(fileInfo.path);
-          } catch (err) {
-            console.error(`Failed to delete old backup file: ${fileInfo.path}`, err);
-          }
-        }
-      }
-    } catch (e) { console.error('Auto backup error:', e); }
-  }
-}
-
-// ── Process management ────────────────────────────────────────────────────────
-const processes = {}; // serviceId -> { proc, logs[] }
-const pids = {};      // serviceId -> lastKnownPid
-let isAppQuitting = false;
-
-function startProcess(win, service) {
-  if (processes[service.id]) return;
-
-  const logs = [];
-  processes[service.id] = { proc: null, logs };
-
-  const parts = service.cmd.trim().split(/\s+/);
-  let cmd = parts[0];
-  const args = parts.slice(1);
-
-  // Windows: npm/npx need .cmd extension
-  if (['npm', 'npx', 'yarn', 'pnpm', 'node'].includes(cmd)) {
-    cmd = cmd + '.cmd';
-  }
-
-  const rawDir = service.dir || process.env.USERPROFILE || 'C:\\';
-  const cwd = rawDir.replace(/^~[/\\]?/, (process.env.USERPROFILE || 'C:\\Users\\user') + '\\');
-
-  const sendLog = (type, text) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    const line = { time: new Date().toLocaleTimeString('vi-VN'), type, text: trimmed };
-    logs.push(line);
-    if (logs.length > 1000) logs.shift();
-    if (win && !win.isDestroyed()) win.webContents.send('log-line', { id: service.id, line });
-
-    // ── Thuật toán nhận diện URL tối ưu ──────────────────────────────────────
-    const localPatterns = [
-      /(?:Local|localhost|127\.0\.0\.1)[:\s]+(https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?)/i,
-      /(https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?)/i
-    ];
-    const networkPatterns = [
-      /(?:Network|IP|LAN|On Your Network)[:\s]+(https?:\/\/(?:[\d]{1,3}\.){3}[\d]{1,3}(?::\d+)?)/i,
-      /(https?:\/\/(?!localhost)(?!127\.0\.0\.1)(?:[\d]{1,3}\.){3}[\d]{1,3}(?::\d+)?)/i
-    ];
-
-    let detectedLocal = null;
-    let detectedNetwork = null;
-
-    // Tìm Local URL
-    for (const re of localPatterns) {
-      const match = trimmed.match(re);
-      if (match) {
-        detectedLocal = match[1].replace('0.0.0.0', 'localhost');
-        break;
-      }
-    }
-
-    // Tìm Network URL
-    for (const re of networkPatterns) {
-      const match = trimmed.match(re);
-      if (match) {
-        detectedNetwork = match[1];
-        break;
-      }
-    }
-
-    if ((detectedLocal || detectedNetwork) && win && !win.isDestroyed()) {
-      win.webContents.send('url-detected', { 
-        id: service.id, 
-        local: detectedLocal, 
-        network: detectedNetwork 
-      });
-    }
+  let fallbackTriggered = false;
+  const triggerFallback = () => {
+    if (fallbackTriggered) return;
+    fallbackTriggered = true;
+    client.destroy();
+    process.stderr.write('[DEBUG] Proxy connection failed. Starting Standalone Headless Master Mode...\n');
+    runStandaloneHeadless(serviceManager);
   };
 
-  try {
-    const proc = spawn(cmd, args, {
-      cwd,
-      shell: true,
-      env: { ...process.env },
-      windowsHide: true
+  const client = net.createConnection({ port, host: '127.0.0.1' });
+  client.setTimeout(500); // 500ms timeout to detect GUI presence quickly
+
+  client.on('connect', () => {
+    process.stderr.write('[DEBUG] Proxy connection established with GUI instance!\n');
+    const rl = readline.createInterface({ input: process.stdin });
+    rl.on('line', (line) => {
+      client.write(line + '\n');
     });
 
-    processes[service.id].proc = proc;
-    pids[service.id] = proc.pid;
-
-    proc.stdout.setEncoding('utf8');
-    proc.stderr.setEncoding('utf8');
-
-    proc.stdout.on('data', d => d.split('\n').forEach(l => sendLog('plain', l)));
-    proc.stderr.on('data', d => {
-      d.split('\n').forEach(l => {
-        const lo = l.toLowerCase();
-        if (lo.includes('error') || lo.includes('fail')) sendLog('error', l);
-        else if (lo.includes('warn')) sendLog('warn', l);
-        else sendLog('info', l);
-      });
+    client.on('data', (chunk) => {
+      process.stdout.write(chunk);
     });
 
-    proc.on('spawn', () => {
-      sendLog('success', `✓ Đã khởi động (PID: ${proc.pid})`);
-      if (win && !win.isDestroyed()) win.webContents.send('status-change', { id: service.id, status: 'running', pid: proc.pid });
+    client.on('end', () => {
+      process.exit(0);
     });
 
-    proc.on('error', err => {
-      sendLog('error', `Không thể khởi động: ${err.message}`);
-      if (!isAppQuitting && win && !win.isDestroyed()) win.webContents.send('status-change', { id: service.id, status: 'error' });
-      delete processes[service.id];
+    client.on('error', () => {
+      process.exit(1);
     });
+  });
 
-    proc.on('close', code => {
-      sendLog(code === 0 ? 'plain' : 'warn', `Tiến trình kết thúc (code: ${code})`);
-      if (!isAppQuitting && win && !win.isDestroyed()) win.webContents.send('status-change', { id: service.id, status: code === 0 ? 'stopped' : 'error' });
-      delete processes[service.id];
-    });
+  client.on('timeout', () => {
+    triggerFallback();
+  });
 
-  } catch (err) {
-    if (win && !win.isDestroyed()) {
-      win.webContents.send('log-line', { id: service.id, line: { time: new Date().toLocaleTimeString(), type: 'error', text: 'Lỗi: ' + err.message } });
-      win.webContents.send('status-change', { id: service.id, status: 'error' });
-    }
-    delete processes[service.id];
-  }
-}
-
-// Dừng tiến trình một cách triệt để (bao gồm cả tiến trình con và chiếm dụng port)
-function stopProcess(id, service = null) {
-  return new Promise(async (resolve) => {
-    // 1. Thử giết theo PID tree (kể cả khi shell đã đóng)
-    const pid = pids[id];
-    if (pid) {
-      spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'], { shell: true });
-    }
-
-    // 2. Thử giết theo Port (nếu có thông tin URL)
-    const url = service?.localUrl || service?.url;
-    if (url) {
-      const portMatch = url.match(/:(\d+)\/?$/);
-      if (portMatch) {
-        const port = portMatch[1];
-        // Tìm PID đang chiếm port này trên Windows
-        const findCmd = `netstat -ano | findstr :${port}`;
-        const finder = spawn('cmd.exe', ['/c', findCmd], { shell: true });
-        
-        finder.stdout.on('data', (data) => {
-          const lines = data.toString().split('\n');
-          lines.forEach(line => {
-            const parts = line.trim().split(/\s+/);
-            if (parts.length > 4 && line.includes('LISTENING')) {
-              const portPid = parts[parts.length - 1];
-              if (portPid && portPid !== '0') {
-                spawn('taskkill', ['/pid', portPid, '/f', '/t'], { shell: true });
-              }
-            }
-          });
-        });
-      }
-    }
-
-    // Đợi 1 giây để các lệnh kill thực thi và OS giải phóng tài nguyên
-    setTimeout(() => {
-      const entry = processes[id];
-      if (entry?.proc) {
-        try { entry.proc.kill(); } catch(e) {}
-      }
-      delete processes[id];
-      // Không xóa pids[id] ngay để nhỡ có lệnh stop gọi lại
-      resolve();
-    }, 1200);
+  client.on('error', (err) => {
+    process.stderr.write(`[DEBUG] TCP connection error: ${err.message}\n`);
+    triggerFallback();
   });
 }
 
-// ── Window ────────────────────────────────────────────────────────────────────
+function runStandaloneHeadless(serviceManager) {
+  process.stderr.write('[DEBUG] runStandaloneHeadless initialized\n');
+  const mcpHandler = new McpHandler();
+
+  // Stdio Purity Wrapper
+  const originalStdoutWrite = process.stdout.write;
+  process.stdout.write = (chunk, encoding, callback) => {
+    if (isJsonRpcPayload(chunk)) {
+      return originalStdoutWrite.call(process.stdout, chunk, encoding, callback);
+    } else {
+      return process.stderr.write(chunk, encoding, callback);
+    }
+  };
+
+  // Listen to service log and status events
+  serviceManager.on('log', ({ id, line }) => {
+    process.stderr.write(`[Service log ${id}] [${line.type}] ${line.text}\n`);
+  });
+
+  serviceManager.on('status-change', ({ id, status, pid }) => {
+    process.stderr.write(`[Service status ${id}] status: ${status} (PID: ${pid || 'N/A'})\n`);
+    
+    // Auto update status in services.json
+    const data = serviceManager.loadData();
+    const s = data.services.find(x => x.id === id);
+    if (s) {
+      s.status = status;
+      serviceManager.saveData(data, `MCP Status Update: ${s.name} is ${status}`, true);
+    }
+  });
+
+  serviceManager.on('url-detected', ({ id, local, network }) => {
+    const data = serviceManager.loadData();
+    const s = data.services.find(x => x.id === id);
+    if (s) {
+      if (local && !s.localUrl) s.localUrl = local;
+      if (network && !s.networkUrl) s.networkUrl = network;
+      if (local && !s.url) s.url = local;
+      serviceManager.saveData(data, `URL Detected: ${s.name}`, true);
+    }
+  });
+
+  // Headless context: requireApproval auto-denies mutating actions
+  const context = {
+    listServices: async () => {
+      const data = serviceManager.loadData();
+      return data.services;
+    },
+    startService: async (id) => {
+      const data = serviceManager.loadData();
+      if (data.mcpRequireApproval) {
+        process.stderr.write(`[MCP Audit] start_service denied: requireApproval is enabled but running headless.\n`);
+        return false;
+      }
+      const s = data.services.find(x => x.id === id);
+      if (!s) return false;
+      return serviceManager.startService(s);
+    },
+    stopService: async (id) => {
+      const data = serviceManager.loadData();
+      if (data.mcpRequireApproval) {
+        process.stderr.write(`[MCP Audit] stop_service denied: requireApproval is enabled but running headless.\n`);
+        return;
+      }
+      await serviceManager.stopService(id);
+    },
+    restartService: async (id) => {
+      const data = serviceManager.loadData();
+      if (data.mcpRequireApproval) {
+        process.stderr.write(`[MCP Audit] restart_service denied: requireApproval is enabled but running headless.\n`);
+        return false;
+      }
+      const s = data.services.find(x => x.id === id);
+      if (!s) return false;
+      await serviceManager.stopService(id);
+      return serviceManager.startService(s);
+    },
+    getLogs: async (id) => {
+      return serviceManager.getLogs(id);
+    },
+    addService: async (serviceData) => {
+      const data = serviceManager.loadData();
+      if (data.mcpRequireApproval) {
+        process.stderr.write(`[MCP Audit] add_service denied: requireApproval is enabled but running headless.\n`);
+        return null;
+      }
+      if (data.services.some(s => s.name === serviceData.name && s.project === serviceData.project)) {
+        return null;
+      }
+      const newService = {
+        id: serviceManager.generateServiceId(data.services),
+        name: serviceData.name,
+        project: serviceData.project,
+        cmd: serviceData.cmd,
+        dir: serviceData.dir,
+        url: serviceData.localUrl || '',
+        localUrl: serviceData.localUrl || '',
+        networkUrl: '',
+        status: 'stopped',
+        color: '#CCFF00'
+      };
+      data.services.push(newService);
+      serviceManager.saveData(data, `Add service ${serviceData.name}`);
+      return newService;
+    },
+    deleteService: async (id) => {
+      const data = serviceManager.loadData();
+      if (data.mcpRequireApproval) {
+        process.stderr.write(`[MCP Audit] delete_service denied: requireApproval is enabled but running headless.\n`);
+        return;
+      }
+      const s = data.services.find(x => x.id === id);
+      if (!s) return;
+      await serviceManager.stopService(id);
+      data.services = data.services.filter(x => x.id !== id);
+      serviceManager.saveData(data, `Delete service ${s.name}`);
+    }
+  };
+
+  const rl = readline.createInterface({ input: process.stdin });
+  rl.on('line', async (line) => {
+    try {
+      const req = JSON.parse(line);
+      process.stderr.write(`[MCP Audit] Headless client invoked: ${req.method}\n`);
+      const resp = await mcpHandler.handleMessage(req, context);
+      if (resp) {
+        originalStdoutWrite.call(process.stdout, JSON.stringify(resp) + '\n');
+      }
+    } catch (err) {
+      process.stderr.write(`[MCP Error] Failed parsing JSON-RPC line: ${err.message}\n`);
+    }
+  });
+
+  // Handle clean exits on SIGINT/SIGTERM
+  const handleExit = async () => {
+    process.stderr.write('[MCP Server] Shutting down headless services...\n');
+    await serviceManager.shutdown();
+    process.exit(0);
+  };
+  process.on('SIGINT', handleExit);
+  process.on('SIGTERM', handleExit);
+}
+
+// ── GUI Runner Mode ───────────────────────────────────────────────────────────
+let serviceManager;
 let mainWindow;
 let tray = null;
+let tcpServer = null;
+let mcpClients = [];
+const mcpHandler = new McpHandler();
+const pendingApprovals = new Map();
+let nextApprovalId = 1;
 
+function runGuiMode() {
+  const gotTheLock = app.requestSingleInstanceLock();
+
+  if (!gotTheLock) {
+    app.quit();
+  } else {
+    app.on('second-instance', () => {
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    });
+
+    app.whenReady().then(() => {
+      serviceManager = new ServiceManager(app.getPath('userData'));
+
+      // Event handlers to communicate with renderer process
+      serviceManager.on('log', ({ id, line }) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('log-line', { id, line });
+        }
+      });
+
+      serviceManager.on('status-change', ({ id, status, pid }) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('status-change', { id, status, pid });
+        }
+        const data = serviceManager.loadData();
+        const s = data.services.find(x => x.id === id);
+        if (s) {
+          s.status = status;
+          serviceManager.saveData(data, `Status Change: ${s.name} is ${status}`, true);
+        }
+      });
+
+      serviceManager.on('url-detected', ({ id, local, network }) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('url-detected', { id, local, network });
+        }
+        const data = serviceManager.loadData();
+        const s = data.services.find(x => x.id === id);
+        if (s) {
+          if (local && !s.localUrl) s.localUrl = local;
+          if (network && !s.networkUrl) s.networkUrl = network;
+          if (local && !s.url) s.url = local;
+          serviceManager.saveData(data, `URL Detected: ${s.name}`, true);
+        }
+      });
+
+      serviceManager.on('services-updated', (data) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('services-updated', data);
+        }
+      });
+
+      createWindow();
+      startMcpTcpServer();
+    });
+
+    app.on('window-all-closed', () => app.quit());
+  }
+}
+
+// ── MCP TCP Server (Internal Bridge) ──────────────────────────────────────────
+function startMcpTcpServer() {
+  const data = serviceManager.loadData();
+  if (!data.mcpEnabled) {
+    updateMcpStatusFrontend();
+    return;
+  }
+
+  const port = data.mcpPort || 20263;
+  tcpServer = net.createServer((socket) => {
+    mcpClients.push(socket);
+    updateMcpStatusFrontend();
+
+    const clientAddr = `${socket.remoteAddress}:${socket.remotePort}`;
+    console.error(`[MCP Audit] Client connected from ${clientAddr}`);
+
+    const rl = readline.createInterface({ input: socket });
+    rl.on('line', async (line) => {
+      try {
+        const req = JSON.parse(line);
+        const context = createMcpContext(clientAddr);
+        const resp = await mcpHandler.handleMessage(req, context);
+        if (resp) {
+          socket.write(JSON.stringify(resp) + '\n');
+        }
+      } catch (err) {
+        console.error(`[MCP Error] Failed processing TCP message: ${err.message}`);
+      }
+    });
+
+    socket.on('error', () => {});
+    socket.on('close', () => {
+      mcpClients = mcpClients.filter(c => c !== socket);
+      updateMcpStatusFrontend();
+      console.error(`[MCP Audit] Client disconnected: ${clientAddr}`);
+    });
+  });
+
+  tcpServer.listen(port, '127.0.0.1', () => {
+    console.error(`[MCP Server] Listening on 127.0.0.1:${port}`);
+    updateMcpStatusFrontend();
+  });
+
+  tcpServer.on('error', (err) => {
+    console.error(`[MCP Server] TCP Error: ${err.message}`);
+    updateMcpStatusFrontend();
+  });
+}
+
+function stopMcpTcpServer() {
+  if (tcpServer) {
+    tcpServer.close();
+    tcpServer = null;
+  }
+  mcpClients.forEach(c => c.destroy());
+  mcpClients = [];
+  updateMcpStatusFrontend();
+}
+
+function updateMcpStatusFrontend() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const data = serviceManager.loadData();
+    mainWindow.webContents.send('mcp-status-change', {
+      enabled: data.mcpEnabled,
+      port: data.mcpPort || 20263,
+      requireApproval: data.mcpRequireApproval,
+      clientsCount: mcpClients.length
+    });
+  }
+}
+
+// ── MCP Approval Flow ─────────────────────────────────────────────────────────
+function requestApproval(clientName, action, targetName) {
+  const data = serviceManager.loadData();
+  if (!data.mcpRequireApproval) {
+    return Promise.resolve(true);
+  }
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return Promise.resolve(false);
+  }
+
+  const approvalId = nextApprovalId++;
+  return new Promise((resolve) => {
+    console.error(`[MCP Audit] Client ${clientName} requested sensitive action: ${action} on ${targetName}. Prompting user...`);
+    mainWindow.webContents.send('mcp-approve-request', {
+      approvalId,
+      client: clientName,
+      action,
+      target: targetName
+    });
+
+    const timer = setTimeout(() => {
+      if (pendingApprovals.has(approvalId)) {
+        pendingApprovals.delete(approvalId);
+        console.error(`[MCP Audit] Approval ID ${approvalId} timed out. Request denied automatically.`);
+        resolve(false);
+      }
+    }, 60000);
+
+    pendingApprovals.set(approvalId, { resolve, timer });
+  });
+}
+
+function createMcpContext(clientName) {
+  return {
+    listServices: async () => {
+      const data = serviceManager.loadData();
+      return data.services;
+    },
+    startService: async (id) => {
+      const data = serviceManager.loadData();
+      const s = data.services.find(x => x.id === id);
+      if (!s) return false;
+      const approved = await requestApproval(clientName, 'Start Service', s.name);
+      if (!approved) return false;
+      return serviceManager.startService(s);
+    },
+    stopService: async (id) => {
+      const data = serviceManager.loadData();
+      const s = data.services.find(x => x.id === id);
+      if (!s) return;
+      const approved = await requestApproval(clientName, 'Stop Service', s.name);
+      if (!approved) return;
+      await serviceManager.stopService(id);
+    },
+    restartService: async (id) => {
+      const data = serviceManager.loadData();
+      const s = data.services.find(x => x.id === id);
+      if (!s) return false;
+      const approved = await requestApproval(clientName, 'Restart Service', s.name);
+      if (!approved) return false;
+      await serviceManager.stopService(id);
+      return serviceManager.startService(s);
+    },
+    getLogs: async (id) => {
+      return serviceManager.getLogs(id);
+    },
+    addService: async (serviceData) => {
+      const data = serviceManager.loadData();
+      const approved = await requestApproval(clientName, 'Add Service', serviceData.name);
+      if (!approved) return null;
+
+      if (data.services.some(s => s.name === serviceData.name && s.project === serviceData.project)) {
+        return null;
+      }
+      const newService = {
+        id: serviceManager.generateServiceId(data.services),
+        name: serviceData.name,
+        project: serviceData.project,
+        cmd: serviceData.cmd,
+        dir: serviceData.dir,
+        url: serviceData.localUrl || '',
+        localUrl: serviceData.localUrl || '',
+        networkUrl: '',
+        status: 'stopped',
+        color: '#CCFF00'
+      };
+      data.services.push(newService);
+      serviceManager.saveData(data, `Add service ${serviceData.name}`);
+      return newService;
+    },
+    deleteService: async (id) => {
+      const data = serviceManager.loadData();
+      const s = data.services.find(x => x.id === id);
+      if (!s) return;
+      const approved = await requestApproval(clientName, 'Delete Service', s.name);
+      if (!approved) return;
+
+      await serviceManager.stopService(id);
+      data.services = data.services.filter(x => x.id !== id);
+      serviceManager.saveData(data, `Delete service ${s.name}`);
+    }
+  };
+}
+
+// ── Window and Tray Management ────────────────────────────────────────────────
 function createWindow() {
   const iconPath = path.join(__dirname, 'assets', 'icon.png');
 
@@ -258,7 +493,6 @@ function createWindow() {
     }
   });
 
-  // ── Tray ────────────────────────────────────────────────────────────────────
   const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
   tray = new Tray(trayIcon);
   tray.setToolTip('DevLaunch');
@@ -274,8 +508,7 @@ function createWindow() {
   mainWindow.loadFile('index.html');
 
   mainWindow.on('close', async (e) => {
-    isAppQuitting = true;
-    const runningIds = Object.keys(processes);
+    const runningIds = serviceManager.getRunningIds();
     if (runningIds.length > 0) {
       e.preventDefault();
       const choice = dialog.showMessageBoxSync(mainWindow, {
@@ -286,39 +519,34 @@ function createWindow() {
       });
 
       if (choice === 0) {
-        // User chọn thoát: Dừng tất cả rồi mới quit
-        for (const id of runningIds) {
-          await stopProcess(id);
-        }
-        app.exit(); // Thoát ép buộc sau khi đã clean up
-      } else {
-        isAppQuitting = false;
+        stopMcpTcpServer();
+        await serviceManager.shutdown();
+        app.exit();
       }
+    } else {
+      stopMcpTcpServer();
+      await serviceManager.shutdown();
     }
   });
 }
 
-// ── IPC ───────────────────────────────────────────────────────────────────────
-ipcMain.handle('load-data', () => loadData());
-ipcMain.handle('save-data', (_, data, desc, skipBackup) => { saveData(data, desc, skipBackup); return true; });
-ipcMain.handle('start-service', (_, s) => { startProcess(mainWindow, s); return { ok: true }; });
+// ── IPC Handlers ──────────────────────────────────────────────────────────────
+ipcMain.handle('load-data', () => serviceManager.loadData());
+ipcMain.handle('save-data', (_, data, desc, skipBackup) => { serviceManager.saveData(data, desc, skipBackup); return true; });
+ipcMain.handle('start-service', (_, s) => { serviceManager.startService(s); return { ok: true }; });
 ipcMain.handle('stop-service', async (_, id) => {
-  const data = loadData();
-  const s = data.services.find(x => x.id === id);
-  await stopProcess(id, s);
+  await serviceManager.stopService(id);
   return { ok: true };
 });
-
 ipcMain.handle('restart-service', async (_, s) => {
-  await stopProcess(s.id, s);
-  // Khởi động lại
-  startProcess(mainWindow, s);
+  await serviceManager.stopService(s.id);
+  serviceManager.startService(s);
   return { ok: true };
 });
-ipcMain.handle('get-logs', (_, id) => processes[id]?.logs || []);
-ipcMain.handle('get-running-ids', () => Object.keys(processes).map(Number));
+ipcMain.handle('get-logs', (_, id) => serviceManager.getLogs(id));
+ipcMain.handle('get-running-ids', () => serviceManager.getRunningIds());
 ipcMain.handle('send-input', (_, { id, text }) => {
-  const entry = processes[id];
+  const entry = serviceManager.processes[id];
   if (entry?.proc && entry.proc.stdin) {
     entry.proc.stdin.write(text + '\n');
     return { ok: true };
@@ -326,14 +554,6 @@ ipcMain.handle('send-input', (_, { id, text }) => {
   return { ok: false };
 });
 ipcMain.handle('open-url', (_, url) => shell.openExternal(url));
-ipcMain.handle('open-antigravity', async (_, dir) => {
-  if (!dir) return;
-  // Thử mở bằng lệnh 'antigravity', nếu không có thì fallback sang 'code' (VS Code)
-  const cmd = process.platform === 'win32' ? 'cmd.exe' : 'sh';
-  const args = process.platform === 'win32' ? ['/c', `antigravity "${dir}" || code "${dir}"`] : ['-c', `antigravity "${dir}" || code "${dir}"`];
-  
-  spawn(cmd, args, { shell: true });
-});
 ipcMain.handle('open-folder', (_, dir) => {
   if (dir) shell.openPath(dir.replace(/^~[/\\]?/, (process.env.USERPROFILE || '') + '\\'));
 });
@@ -357,20 +577,51 @@ ipcMain.handle('import-backup', async () => {
   if (!r.canceled && r.filePaths.length > 0) return JSON.parse(fs.readFileSync(r.filePaths[0], 'utf-8'));
   return null;
 });
+ipcMain.handle('open-antigravity', async (_, dir) => {
+  if (!dir) return;
+  const cmd = process.platform === 'win32' ? 'cmd.exe' : 'sh';
+  const args = process.platform === 'win32' ? ['/c', `antigravity "${dir}" || code "${dir}"`] : ['-c', `antigravity "${dir}" || code "${dir}"`];
+  spawn(cmd, args, { shell: true });
+});
 
-const gotTheLock = app.requestSingleInstanceLock();
+// MCP GUI configuration APIs
+ipcMain.handle('load-mcp-config', () => {
+  const data = serviceManager.loadData();
+  return {
+    enabled: data.mcpEnabled,
+    port: data.mcpPort || 20263,
+    requireApproval: data.mcpRequireApproval,
+    clientsCount: mcpClients.length
+  };
+});
 
-if (!gotTheLock) {
-  app.quit();
-} else {
-  app.on('second-instance', () => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.show();
-      mainWindow.focus();
+ipcMain.handle('save-mcp-config', (_, { enabled, port, requireApproval }) => {
+  const data = serviceManager.loadData();
+  const mcpChanged = data.mcpEnabled !== enabled || data.mcpPort !== port;
+
+  data.mcpEnabled = enabled;
+  data.mcpPort = Number(port) || 20263;
+  data.mcpRequireApproval = requireApproval;
+
+  serviceManager.saveData(data, 'Save MCP Config');
+
+  if (mcpChanged) {
+    stopMcpTcpServer();
+    if (enabled) {
+      startMcpTcpServer();
     }
-  });
+  } else {
+    updateMcpStatusFrontend();
+  }
+  return { ok: true };
+});
 
-  app.whenReady().then(createWindow);
-  app.on('window-all-closed', () => app.quit());
-}
+ipcMain.handle('mcp-approve-reply', (_, { approvalId, approved }) => {
+  const pending = pendingApprovals.get(approvalId);
+  if (pending) {
+    clearTimeout(pending.timer);
+    pendingApprovals.delete(approvalId);
+    pending.resolve(approved);
+  }
+  return { ok: true };
+});

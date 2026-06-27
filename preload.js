@@ -18,5 +18,14 @@ contextBridge.exposeInMainWorld('api', {
   onLogLine: (cb) => ipcRenderer.on('log-line', (_, d) => cb(d)),
   onStatusChange: (cb) => ipcRenderer.on('status-change', (_, d) => cb(d)),
   onUrlDetected: (cb) => ipcRenderer.on('url-detected', (_, d) => cb(d)),
-  removeAllListeners: (ch) => ipcRenderer.removeAllListeners(ch)
+  removeAllListeners: (ch) => ipcRenderer.removeAllListeners(ch),
+
+  // MCP APIs
+  loadMcpConfig: () => ipcRenderer.invoke('load-mcp-config'),
+  saveMcpConfig: (config) => ipcRenderer.invoke('save-mcp-config', config),
+  onMcpStatusChange: (cb) => ipcRenderer.on('mcp-status-change', (_, d) => cb(d)),
+  onServicesUpdated: (cb) => ipcRenderer.on('services-updated', (_, d) => cb(d)),
+  onMcpApproveRequest: (cb) => ipcRenderer.on('mcp-approve-request', (_, d) => cb(d)),
+  replyMcpApprove: (approvalId, approved) => ipcRenderer.invoke('mcp-approve-reply', { approvalId, approved })
 });
+
